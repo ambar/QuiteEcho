@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let asr = ASRBridge()
     private let hotkey = HotkeyManager()
     private let bootstrap = BootstrapManager()
+    private let updateChecker = UpdateChecker()
     private var statusBar: StatusBarController!
     private var hotkeyRecorderWindow: HotkeyRecorderWindow?
 
@@ -35,6 +36,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.onSelectHotkeyPreset = { [weak self] preset in self?.applyHotkeyPreset(preset) }
         viewModel.onTogglePlayground = { [weak self] in self?.togglePlaygroundRecording() }
         viewModel.onHotkeyModeChange = { [weak self] mode in self?.setHotkeyMode(mode) }
+        viewModel.onCheckUpdate = { [weak self] in
+            guard let self else { return }
+            self.viewModel.updateCheckStatus = .checking
+            self.updateChecker.check(manual: true)
+        }
+        viewModel.onAutoCheckChange = { [weak self] enabled in self?.setAutoCheckUpdates(enabled) }
 
         asr.onStateChange = { [weak self] state in
             guard let self else { return }
@@ -82,6 +89,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        updateChecker.onUpdateAvailable = { [weak self] release in
+            guard let self else { return }
+            self.viewModel.availableUpdate = release
+            self.viewModel.updateCheckStatus = .idle
+            self.statusBar.rebuildMenu()
+        }
+        updateChecker.onCheckComplete = { [weak self] hasUpdate in
+            guard let self, !hasUpdate else { return }
+            self.viewModel.updateCheckStatus = .upToDate
+            // Reset after 5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                if self.viewModel.updateCheckStatus == .upToDate {
+                    self.viewModel.updateCheckStatus = .idle
+                }
+            }
+        }
+        if config.autoCheckUpdates {
+            updateChecker.startPeriodicChecks()
+        }
+
         PasteService.ensureAccessibility()
         bindHotkey()
         showMainWindow()
@@ -102,6 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if recorder.isRecording { _ = recorder.stop() }
         hotkey.unregister()
         asr.stop()
+        updateChecker.stop()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -275,6 +303,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         config.useHFMirror = use
         config.save()
         viewModel.config = config
+    }
+
+    private func setAutoCheckUpdates(_ enabled: Bool) {
+        config.autoCheckUpdates = enabled
+        config.save()
+        viewModel.config = config
+        if enabled {
+            updateChecker.startPeriodicChecks()
+        } else {
+            updateChecker.stop()
+        }
     }
 
     // MARK: - Hotkey

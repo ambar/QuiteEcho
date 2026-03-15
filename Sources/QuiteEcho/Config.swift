@@ -10,6 +10,7 @@ struct AppConfig: Codable {
     var language: String = ""            // empty = auto-detect
     var pythonPath: String = ""          // empty = auto-detect
     var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
+    var autoCheckUpdates: Bool = true    // check GitHub releases on launch
 
     // MARK: - Persistence
 

@@ -75,6 +75,18 @@ final class StatusBarController {
         hkItem.target = self
         menu.addItem(hkItem)
 
+        if let update = delegate.viewModel.availableUpdate {
+            menu.addItem(.separator())
+            let updateItem = NSMenuItem(
+                title: "Update Available: v\(update.version)",
+                action: #selector(onOpenUpdate),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            updateItem.representedObject = update.htmlURL
+            menu.addItem(updateItem)
+        }
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(title: "Quit", action: #selector(onQuit), keyEquivalent: "q")
@@ -93,5 +105,10 @@ final class StatusBarController {
         delegate?.selectModel(id)
     }
     @objc private func onChangeHotkey() { delegate?.changeHotkey() }
+    @objc private func onOpenUpdate(_ sender: NSMenuItem) {
+        guard let urlString = sender.representedObject as? String,
+              let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
     @objc private func onQuit() { NSApp.terminate(nil) }
 }

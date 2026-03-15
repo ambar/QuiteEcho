@@ -59,6 +59,16 @@ final class MainViewModel: ObservableObject {
     var onSelectHotkeyPreset: ((HotkeyPreset) -> Void)?      // preset selection
     var onTogglePlayground: (() -> Void)?
     var onHotkeyModeChange: ((String) -> Void)?
+    var onCheckUpdate: (() -> Void)?
+    var onAutoCheckChange: ((Bool) -> Void)?
+
+    enum UpdateCheckStatus: Equatable { case idle, checking, upToDate }
+    @Published var availableUpdate: UpdateChecker.Release?
+    @Published var updateCheckStatus: UpdateCheckStatus = .idle
+
+    var currentVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
 
     var allPermissionsGranted: Bool {
         permAccessibility && permMicrophone
@@ -160,11 +170,30 @@ struct MainWindowView: View {
 
             Spacer()
 
-            Text("v0.1.1")
-                .font(.system(size: 10))
-                .foregroundStyle(.quaternary)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
+            if let update = vm.availableUpdate {
+                Button(action: {
+                    if let url = URL(string: update.htmlURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 10))
+                        Text("v\(update.version)")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 12)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("v0.1.1")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.quaternary)
+                    .padding(.horizontal, 12)
+            }
+
+            Spacer().frame(height: 12)
         }
         .padding(.horizontal, 8)
         .frame(width: 140)
@@ -761,6 +790,86 @@ private struct SettingsView: View {
                             granted: vm.permAccessibility,
                             action: grantAccessibility
                         )
+                    }
+                }
+
+                // Updates
+                card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Updates")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Current version: v\(vm.currentVersion)")
+                                    .font(.system(size: 13))
+                                if let update = vm.availableUpdate {
+                                    Text("v\(update.version) available")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.orange)
+                                } else if vm.updateCheckStatus == .checking {
+                                    Text("Checking...")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                } else if vm.updateCheckStatus == .upToDate {
+                                    Text("Already the latest version")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Text("Up to date")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if let update = vm.availableUpdate {
+                                Button(action: {
+                                    if let url = URL(string: update.htmlURL) {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }) {
+                                    Text("Download")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 5)
+                                        .background(Color.orange)
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Button(action: { vm.onCheckUpdate?() }) {
+                                    if vm.updateCheckStatus == .checking {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Text("Check Now")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundStyle(Color.accentColor)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 5)
+                                            .background(Color.accentColor.opacity(0.1))
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(vm.updateCheckStatus == .checking)
+                            }
+                        }
+
+                        Divider()
+
+                        Toggle(isOn: Binding(
+                            get: { vm.config.autoCheckUpdates },
+                            set: { vm.onAutoCheckChange?($0) }
+                        )) {
+                            Text("Automatically check for updates")
+                                .font(.system(size: 13))
+                        }
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
                     }
                 }
 
