@@ -1,4 +1,4 @@
-.PHONY: build run dmg clean
+.PHONY: build run dmg clean release
 
 APP_NAME    = QuiteEcho
 BUILD_DIR   = .build/release
@@ -46,3 +46,11 @@ dmg:
 clean:
 	swift package clean
 	@rm -rf "$(APP_BUNDLE)" "$(DIST_DIR)"
+
+release:
+	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=1.0.0" && exit 1)
+	@bash scripts/bump-version.sh $(VERSION)
+	@git add Resources/Info.plist Sources/QuiteEcho/MainWindow.swift pyproject.toml
+	@git commit -m "Release v$(VERSION)"
+	@git tag "v$(VERSION)"
+	@echo "Done. Run 'git push && git push --tags' to trigger the release workflow."

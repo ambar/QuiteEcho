@@ -1,10 +1,10 @@
 # The Quiet Echo
 
-A fully offline speech-to-text app for macOS. No cloud, no network requests, no waiting. Your voice hits the local model and comes back as text — instantly.
+A fully offline speech-to-text app for macOS — fast, private, and entirely yours.
 
-- **Zero latency**: On-device inference with no round-trips. Press, speak, paste.
-- **Zero telemetry**: Nothing leaves your machine. Ever.
-- **Minimal UI**: A hotkey and a floating HUD. Stay in flow.
+- **On-device inference** — press, speak, paste. No round-trips, no waiting.
+- **Zero telemetry** — nothing leaves your machine. Ever.
+- **Minimal UI** — a hotkey and a floating HUD. Stay in flow.
 
 Powered by [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR).
 
