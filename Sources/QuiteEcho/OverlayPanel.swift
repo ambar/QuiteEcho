@@ -64,20 +64,24 @@ final class OverlayPanel {
         container.addSubview(dotView)
 
         // Label (vertically centered)
-        label = NSTextField(labelWithString: "")
-        label.frame = NSRect(x: 30, y: 0, width: maxPanelW - 48, height: kPanelH)
-        label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.textColor = .white
-        label.lineBreakMode = .byTruncatingTail
-        label.cell?.isScrollable = false
-        label.cell?.wraps = false
-        (label.cell as? NSTextFieldCell)?.lineBreakMode = .byTruncatingTail
+        label = NSTextField(frame: NSRect(x: 30, y: 0, width: maxPanelW - 48, height: kPanelH))
+        let cell = VerticallyCenteredTextFieldCell()
+        cell.font = .systemFont(ofSize: 12, weight: .medium)
+        cell.textColor = .white
+        cell.isEditable = false
+        cell.isBordered = false
+        cell.drawsBackground = false
+        cell.isScrollable = false
+        cell.wraps = false
+        cell.lineBreakMode = .byTruncatingTail
+        label.cell = cell
         container.addSubview(label)
     }
 
     // MARK: - Public
 
     func showRecording() {
+        stopPulse()
         dotView.isHidden = true
         label.isHidden = true
         waveView.isHidden = false
@@ -95,15 +99,22 @@ final class OverlayPanel {
         stopWaveAnimation()
         waveView.isHidden = true
         dotView.isHidden = false
-        label.isHidden = false
-        dotView.color = .systemOrange
-        label.stringValue = "Transcribing..."
+        label.isHidden = true
+        dotView.color = .white
 
-        resizePanel(width: 160)
+        let barsW = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
+        let compactW = barsW + 36
+        resizePanel(width: compactW)
+        // Center dot in compact panel
+        let dotSize = dotView.frame.size
+        dotView.frame.origin.x = (compactW - dotSize.width) / 2
+
+        startPulse()
     }
 
     func showDone(_ text: String) {
         stopWaveAnimation()
+        stopPulse()
         waveView.isHidden = true
         dotView.isHidden = false
         label.isHidden = false
@@ -118,6 +129,7 @@ final class OverlayPanel {
 
     func showError(_ message: String) {
         stopWaveAnimation()
+        stopPulse()
         waveView.isHidden = true
         dotView.isHidden = false
         label.isHidden = false
@@ -131,6 +143,7 @@ final class OverlayPanel {
 
     func hide() {
         stopWaveAnimation()
+        stopPulse()
         panel.orderOut(nil)
         panel.alphaValue = 0
     }
@@ -154,6 +167,24 @@ final class OverlayPanel {
         // Reposition dot + label
         dotView.frame.origin.x = 16
         label.frame = NSRect(x: 30, y: 0, width: width - 48, height: kPanelH)
+    }
+
+    private func startPulse() {
+        stopPulse()
+        dotView.wantsLayer = true
+        let anim = CABasicAnimation(keyPath: "opacity")
+        anim.fromValue = 1.0
+        anim.toValue = 0.25
+        anim.duration = 0.6
+        anim.autoreverses = true
+        anim.repeatCount = .infinity
+        anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        dotView.layer?.add(anim, forKey: "pulse")
+    }
+
+    private func stopPulse() {
+        dotView.layer?.removeAnimation(forKey: "pulse")
+        dotView.layer?.opacity = 1.0
     }
 
     private func startWaveAnimation() {
@@ -202,6 +233,21 @@ private final class WaveBarView: NSView {
             NSColor.white.withAlphaComponent(alpha).setFill()
             path.fill()
         }
+    }
+}
+
+// MARK: - VerticallyCenteredTextFieldCell
+
+private final class VerticallyCenteredTextFieldCell: NSTextFieldCell {
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        let base = super.drawingRect(forBounds: rect)
+        let textH = cellSize(forBounds: rect).height
+        let delta = base.height - textH
+        if delta > 0 {
+            return NSRect(x: base.origin.x, y: base.origin.y + delta / 2,
+                          width: base.width, height: textH)
+        }
+        return base
     }
 }
 
