@@ -761,12 +761,18 @@ private struct SettingsView: View {
                             .foregroundStyle(.secondary)
                             .textCase(.uppercase)
 
-                        HStack(spacing: 10) {
+                        VStack(spacing: 0) {
                             modeButton("Toggle", value: "toggle",
                                        desc: "Press to start, press again to stop")
+                            Divider().padding(.horizontal, 12)
                             modeButton("Hold", value: "hold",
                                        desc: "Hold to record, release to stop")
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                        )
                     }
                 }
 
@@ -861,15 +867,35 @@ private struct SettingsView: View {
 
                         Divider()
 
-                        Toggle(isOn: Binding(
-                            get: { vm.config.autoCheckUpdates },
-                            set: { vm.onAutoCheckChange?($0) }
-                        )) {
-                            Text("Automatically check for updates")
-                                .font(.system(size: 13))
+                        HStack {
+                            Button(action: {
+                                if let url = URL(string: "https://github.com/ambar/QuiteEcho/releases") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }) {
+                                HStack(spacing: 2) {
+                                    Text("Release Notes")
+                                    Image(systemName: "arrow.up.right")
+                                        .imageScale(.small)
+                                }
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+
+                            Spacer()
+
+                            Toggle(isOn: Binding(
+                                get: { vm.config.autoCheckUpdates },
+                                set: { vm.onAutoCheckChange?($0) }
+                            )) {
+                                Text("Auto check")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
                         }
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
                     }
                 }
 
@@ -1001,24 +1027,22 @@ private struct SettingsView: View {
 
     private func modeButton(_ label: String, value: String, desc: String) -> some View {
         let selected = vm.config.hotkeyMode == value
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 13, weight: selected ? .semibold : .regular))
-            Text(desc)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+        return HStack(spacing: 12) {
+            Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(selected ? Color.accentColor : Color(nsColor: .tertiaryLabelColor))
+                .font(.system(size: 18))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(label)
+                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                Text(desc)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(selected ? Color.accentColor.opacity(0.08) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(
-                    selected ? Color.accentColor.opacity(0.3) : Color(nsColor: .separatorColor),
-                    lineWidth: 1
-                )
-        )
         .contentShape(Rectangle())
         .onTapGesture { vm.onHotkeyModeChange?(value) }
     }
