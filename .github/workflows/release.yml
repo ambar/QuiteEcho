@@ -41,6 +41,12 @@ jobs:
           fi
           xcrun --find metal
           xcrun --find metallib
+      - name: Cache SPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-release-${{ runner.os }}-
       - name: Build DMG
         run: make dmg
       - name: Rename DMG with version
