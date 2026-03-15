@@ -187,7 +187,7 @@ struct MainWindowView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                Text("v0.1.1")
+                Text("v0.1.2")
                     .font(.system(size: 10))
                     .foregroundStyle(.quaternary)
                     .padding(.horizontal, 12)
