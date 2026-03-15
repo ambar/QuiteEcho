@@ -1,21 +1,28 @@
-.PHONY: build run clean
+.PHONY: build run dmg clean
 
 APP_NAME    = QuiteEcho
 BUILD_DIR   = .build/release
 APP_BUNDLE  = $(APP_NAME).app
+DIST_DIR    = dist
+DMG_FILE    = $(DIST_DIR)/$(APP_NAME).dmg
 
 UV_BIN ?= $(shell which uv)
 
+define assemble_app
+	@rm -rf "$(1)"
+	@mkdir -p "$(1)/Contents/MacOS"
+	@mkdir -p "$(1)/Contents/Resources"
+	@cp "$(BUILD_DIR)/$(APP_NAME)" "$(1)/Contents/MacOS/"
+	@cp Resources/Info.plist "$(1)/Contents/"
+	@cp scripts/asr_worker.py "$(1)/Contents/Resources/"
+	@cp "$(UV_BIN)" "$(1)/Contents/Resources/uv"
+	@chmod +x "$(1)/Contents/Resources/uv"
+	@codesign --force --deep --sign - "$(1)"
+endef
+
 build:
 	swift build -c release
-	@mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
-	@mkdir -p "$(APP_BUNDLE)/Contents/Resources"
-	@cp "$(BUILD_DIR)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/"
-	@cp Resources/Info.plist "$(APP_BUNDLE)/Contents/"
-	@cp scripts/asr_worker.py "$(APP_BUNDLE)/Contents/Resources/"
-	@cp "$(UV_BIN)" "$(APP_BUNDLE)/Contents/Resources/uv"
-	@chmod +x "$(APP_BUNDLE)/Contents/Resources/uv"
-	@codesign --force --deep --sign - "$(APP_BUNDLE)"
+	$(call assemble_app,$(APP_BUNDLE))
 	@echo "Built $(APP_BUNDLE)"
 
 run: build
@@ -25,6 +32,17 @@ dev:
 	swift build
 	@.build/debug/$(APP_NAME)
 
+dmg:
+	swift build -c release
+	$(call assemble_app,$(DIST_DIR)/$(APP_NAME).app)
+	@rm -rf "$(DIST_DIR)/dmg" "$(DMG_FILE)"
+	@mkdir -p "$(DIST_DIR)/dmg"
+	@cp -r "$(DIST_DIR)/$(APP_NAME).app" "$(DIST_DIR)/dmg/"
+	@ln -s /Applications "$(DIST_DIR)/dmg/Applications"
+	@hdiutil create -volname "$(APP_NAME)" -srcfolder "$(DIST_DIR)/dmg" -ov -format UDZO "$(DMG_FILE)"
+	@rm -rf "$(DIST_DIR)/dmg" "$(DIST_DIR)/$(APP_NAME).app"
+	@echo "Built $(DMG_FILE)"
+
 clean:
 	swift package clean
-	@rm -rf "$(APP_BUNDLE)" build dist asr_worker.spec
+	@rm -rf "$(APP_BUNDLE)" "$(DIST_DIR)"
