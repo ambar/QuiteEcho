@@ -160,7 +160,7 @@ struct MainWindowView: View {
 
             Spacer()
 
-            Text("v0.1.0")
+            Text("v0.1.1")
                 .font(.system(size: 10))
                 .foregroundStyle(.quaternary)
                 .padding(.horizontal, 12)
