@@ -1,31 +1,28 @@
 # QuiteEcho
 
-macOS app for offline speech-to-text. Records audio via hotkey, transcribes with Qwen3-ASR, pastes into the active app. SwiftUI window (Home/Models/Settings) + menubar status icon.
+macOS app for offline speech-to-text. Records audio via hotkey, transcribes with Qwen3-ASR via mlx-audio-swift (native Apple Silicon), pastes into the active app. SwiftUI window (Home/Models/Settings) + menubar status icon.
 
 ## Build & Run
 
 ```sh
-make build   # swift build + assemble .app bundle (copies uv to Resources/)
+make build   # swift build + assemble .app bundle
 make run     # build + open
 make dev     # debug build + run directly
 make clean   # clean build artifacts
 ```
 
-Override uv path: `make build UV_BIN=/path/to/uv`
-
 ## Architecture
 
 - **Swift** menubar app (Swift Package Manager, no Xcode project)
-- **Python** ASR worker (`scripts/asr_worker.py`) via JSON-line protocol over stdin/stdout
-- Dependencies (torch, qwen-asr) installed dynamically at first launch via bundled `uv`
+- **Native ASR** via [mlx-audio-swift](https://github.com/Blaizzy/mlx-audio-swift) — no Python, no venv, runs directly on Apple Silicon
+- Models downloaded from HuggingFace hub on first use, cached locally
 
 ### Key components
 
 | File | Role |
 |------|------|
 | `AppDelegate.swift` | App lifecycle, hotkey binding, recording flow |
-| `ASRBridge.swift` | Manages Python subprocess, JSON-line protocol |
-| `BootstrapManager.swift` | First-launch setup: creates venv via bundled `uv`, installs torch + qwen-asr |
+| `ASRBridge.swift` | Loads Qwen3-ASR model via mlx-audio-swift, runs transcription |
 | `AudioRecorder.swift` | AVAudioEngine → WAV file |
 | `HotkeyManager.swift` | 3 backends: Carbon (regular keys), NSEvent flagsChanged (modifier keys), NSEvent systemDefined (media keys) |
 | `PasteService.swift` | NSPasteboard + CGEvent ⌘V simulation |
@@ -34,32 +31,15 @@ Override uv path: `make build UV_BIN=/path/to/uv`
 | `MainWindow.swift` | SwiftUI: Home (usage stats), Models, Settings (hotkey/mode/permissions) tabs |
 | `OverlayPanel.swift` | Floating HUD (NSPanel, solid black capsule) |
 | `StatusBar.swift` | Menubar waveform icon and dropdown menu |
-| `scripts/asr_worker.py` | Persistent Python process, Qwen3-ASR model |
 
 ### Runtime data locations
 
-- **Python venv**: `~/Library/Application Support/QuiteEcho/.venv/`
 - **Model cache**: `~/.cache/huggingface/` (HuggingFace default)
 - **User config**: `~/.config/quiteecho/config.json`
 
-### Bootstrap flow
+### ASR flow
 
-App embeds `uv` binary in `Resources/`. On first launch:
-1. `BootstrapManager` creates venv via `uv venv --python 3.13`
-2. Installs `qwen-asr` and `torch` via `uv pip install`
-3. Writes marker file to skip on subsequent launches
-4. `ASRBridge` starts `asr_worker.py` with the venv Python
-
-### ASR worker protocol
-
-```
-→ {"cmd":"transcribe","audio":"/path.wav","language":null}
-← {"text":"transcribed text"}
-
-→ {"cmd":"reload","model":"Qwen/Qwen3-ASR-1.7B"}
-← {"status":"loading"}
-← {"status":"ready"}
-```
+On launch, `ASRBridge.start()` loads the model via `Qwen3ASRModel.fromPretrained()` (async, downloads if needed). Transcription uses `model.generate(audio:)` on a background queue. Audio is loaded and resampled to 16kHz via `loadAudioArray()`.
 
 ### Hotkey system
 
@@ -75,8 +55,8 @@ Recorder window **unregisters** hotkey while open to prevent accidental triggers
 
 ## Dev notes
 
-- `pyproject.toml` deps are for local dev (`uv run`); the app uses `BootstrapManager` for production
+- Requires Swift 6.2 (Xcode 26+), Apple Silicon, macOS 14+
 - All UI text in English
 - Semantic colors only — no hardcoded colors, must support light/dark mode
 - Word counting: `NSString.enumerateSubstrings(options: .byWords)` (ICU, handles CJK)
-- Supported models: `Qwen/Qwen3-ASR-0.6B` (default), `Qwen/Qwen3-ASR-1.7B`
+- Supported models: `mlx-community/Qwen3-ASR-0.6B-8bit` (default), `mlx-community/Qwen3-ASR-1.7B-8bit`, `mlx-community/Qwen3-ASR-1.7B-4bit`

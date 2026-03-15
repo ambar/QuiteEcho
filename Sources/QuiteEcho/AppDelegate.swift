@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let overlay = OverlayPanel()
     private let asr = ASRBridge()
     private let hotkey = HotkeyManager()
-    private let bootstrap = BootstrapManager()
     private let updateChecker = UpdateChecker()
     private var statusBar: StatusBarController!
     private var hotkeyRecorderWindow: HotkeyRecorderWindow?
@@ -73,22 +72,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        bootstrap.onStateChange = { [weak self] state in
-            guard let self else { return }
-            switch state {
-            case .creatingVenv:
-                self.statusBar.setStatus("Creating Python environment...")
-                self.statusBar.setLoading(true)
-            case .installingDeps:
-                self.statusBar.setStatus("Installing dependencies...")
-                self.statusBar.setLoading(true)
-            case .error(let msg):
-                self.statusBar.setStatus("Setup error: \(msg)")
-                self.statusBar.setLoading(false)
-            default: break
-            }
-        }
-
         updateChecker.onUpdateAvailable = { [weak self] release in
             guard let self else { return }
             self.viewModel.availableUpdate = release
@@ -113,16 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bindHotkey()
         showMainWindow()
 
-        // Bootstrap venv, then start ASR worker
-        bootstrap.ensureReady { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success:
-                self.asr.start(model: self.config.model, pythonPath: self.bootstrap.pythonPath, useHFMirror: self.config.useHFMirror)
-            case .failure(let error):
-                NSLog("[Bootstrap] %@", error.localizedDescription)
-            }
-        }
+        asr.start(model: config.model, useHFMirror: config.useHFMirror)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -295,7 +269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         config.model = modelID
         config.save()
         viewModel.config = config
-        asr.reload(model: modelID)
+        asr.reload(model: modelID, useHFMirror: config.useHFMirror)
         statusBar.rebuildMenu()
     }
 

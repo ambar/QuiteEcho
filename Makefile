@@ -1,29 +1,48 @@
-.PHONY: build run dmg clean release
+.PHONY: build run dmg clean release metallib
 
 APP_NAME    = QuiteEcho
 BUILD_DIR   = .build/release
+DEBUG_DIR   = .build/debug
 APP_BUNDLE  = $(APP_NAME).app
 DIST_DIR    = dist
 DMG_FILE    = $(DIST_DIR)/$(APP_NAME).dmg
 
-UV_BIN ?= $(shell which uv)
+MLX_METAL_DIR = .build/checkouts/mlx-swift/Source/Cmlx/mlx-generated/metal
+METALLIB      = .build/mlx.metallib
 
 define assemble_app
 	@rm -rf "$(1)"
 	@mkdir -p "$(1)/Contents/MacOS"
 	@mkdir -p "$(1)/Contents/Resources"
 	@cp "$(BUILD_DIR)/$(APP_NAME)" "$(1)/Contents/MacOS/"
+	@cp "$(METALLIB)" "$(1)/Contents/MacOS/mlx.metallib"
 	@cp Resources/Info.plist "$(1)/Contents/"
 	@cp Resources/AppIcon.icns "$(1)/Contents/Resources/"
-	@cp scripts/asr_worker.py "$(1)/Contents/Resources/"
-	@cp "$(UV_BIN)" "$(1)/Contents/Resources/uv"
-	@chmod +x "$(1)/Contents/Resources/uv"
 	@codesign --force --deep --sign - "$(1)"
 endef
 
+# Compile MLX Metal shaders into mlx.metallib
+metallib:
+	@if [ ! -f "$(METALLIB)" ] || [ -n "$$(find $(MLX_METAL_DIR) -name '*.metal' -newer $(METALLIB) 2>/dev/null)" ]; then \
+		echo "Compiling Metal shaders..."; \
+		rm -rf .build/mlx_air && mkdir -p .build/mlx_air; \
+		for f in $(MLX_METAL_DIR)/*.metal; do \
+			xcrun metal -target air64-apple-macos14.0 \
+				-I $(MLX_METAL_DIR) \
+				-I $(MLX_METAL_DIR)/steel \
+				-I $(MLX_METAL_DIR)/steel/attn \
+				-I $(MLX_METAL_DIR)/steel/conv \
+				-I $(MLX_METAL_DIR)/steel/gemm \
+				-I $(MLX_METAL_DIR)/fft \
+				-c "$$f" -o ".build/mlx_air/$$(basename $$f .metal).air"; \
+		done; \
+		xcrun metallib .build/mlx_air/*.air -o "$(METALLIB)"; \
+		rm -rf .build/mlx_air; \
+	fi
+
 build:
-	@test -n "$(UV_BIN)" || (echo "Error: uv not found. Run: make build UV_BIN=/path/to/uv" && exit 1)
 	swift build -c release
+	@$(MAKE) metallib
 	$(call assemble_app,$(APP_BUNDLE))
 	@echo "Built $(APP_BUNDLE)"
 
@@ -32,11 +51,13 @@ run: build
 
 dev:
 	swift build
-	@.build/debug/$(APP_NAME)
+	@$(MAKE) metallib
+	@cp "$(METALLIB)" "$(DEBUG_DIR)/mlx.metallib" 2>/dev/null || true
+	@"$(DEBUG_DIR)/$(APP_NAME)"
 
 dmg:
-	@test -n "$(UV_BIN)" || (echo "Error: uv not found. Run: make dmg UV_BIN=/path/to/uv" && exit 1)
 	swift build -c release
+	@$(MAKE) metallib
 	$(call assemble_app,$(DIST_DIR)/$(APP_NAME).app)
 	@rm -rf "$(DIST_DIR)/dmg" "$(DMG_FILE)"
 	@mkdir -p "$(DIST_DIR)/dmg"
@@ -48,12 +69,12 @@ dmg:
 
 clean:
 	swift package clean
-	@rm -rf "$(APP_BUNDLE)" "$(DIST_DIR)"
+	@rm -rf "$(APP_BUNDLE)" "$(DIST_DIR)" "$(METALLIB)"
 
 release:
 	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=1.0.0" && exit 1)
 	@bash scripts/bump-version.sh $(VERSION)
-	@git add Resources/Info.plist Sources/QuiteEcho/MainWindow.swift pyproject.toml
+	@git add Resources/Info.plist Sources/QuiteEcho/MainWindow.swift
 	@git commit -m "Release v$(VERSION)"
 	@git tag "v$(VERSION)"
 	@echo "Done. Run 'git push && git push --tags' to trigger the release workflow."

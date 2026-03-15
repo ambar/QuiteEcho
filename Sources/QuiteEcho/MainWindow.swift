@@ -469,8 +469,8 @@ private struct ModelsView: View {
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 10) {
-                    ForEach(AppConfig.availableModels, id: \.id) { model in
-                        modelCard(model)
+                    ForEach(Array(AppConfig.modelFamilies.enumerated()), id: \.offset) { _, family in
+                        ModelCardView(vm: vm, family: family)
                     }
                 }
 
@@ -497,19 +497,23 @@ private struct ModelsView: View {
         .background(Color(nsColor: .textBackgroundColor))
     }
 
-    private func modelCard(_ model: (label: String, id: String)) -> some View {
-        ModelCardView(vm: vm, model: model)
-    }
-
 }
 
 private struct ModelCardView: View {
     @ObservedObject var vm: MainViewModel
-    let model: (label: String, id: String)
+    let family: AppConfig.ModelFamily
     @State private var dirSize: Int64 = 0
     @State private var sizeTimer: Timer?
 
-    private var selected: Bool { vm.config.model == model.id }
+    private var currentModelId: String {
+        family.modelId(selectedVariant)
+    }
+
+    private var selectedVariant: String {
+        family.variant(of: vm.config.model) ?? family.defaultVariant
+    }
+
+    private var selected: Bool { family.hasVariant(vm.config.model) }
     private var isLoading: Bool {
         guard selected else { return false }
         switch vm.asrState {
@@ -519,11 +523,6 @@ private struct ModelCardView: View {
     }
 
     var body: some View {
-        let cachePath = modelCachePath(model.id)
-        let subtitle = model.id == "Qwen/Qwen3-ASR-0.6B"
-            ? "Faster inference, lower memory usage"
-            : "Higher accuracy, requires more memory"
-
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
@@ -531,9 +530,9 @@ private struct ModelCardView: View {
                     .font(.system(size: 18))
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(model.label)
+                    Text(family.name)
                         .font(.system(size: 14, weight: selected ? .semibold : .regular))
-                    Text(subtitle)
+                    Text(family.description)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -543,10 +542,14 @@ private struct ModelCardView: View {
                 if selected {
                     modelStateBadge
                 }
+
+                variantPicker
             }
             .padding(16)
             .contentShape(Rectangle())
-            .onTapGesture { vm.onModelChange?(model.id) }
+            .onTapGesture {
+                vm.onModelChange?(currentModelId)
+            }
 
             Divider().padding(.horizontal, 12)
 
@@ -571,7 +574,7 @@ private struct ModelCardView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-            } else if let path = cachePath {
+            } else if let path = modelCachePath(currentModelId) {
                 HStack(spacing: 4) {
                     Image(systemName: "folder.fill")
                         .font(.system(size: 10))
@@ -625,6 +628,26 @@ private struct ModelCardView: View {
         .onAppear { refreshSize(); updateTimer() }
         .onDisappear { stopTimer() }
         .onChange(of: vm.asrState) { updateTimer() }
+        .onChange(of: vm.config.model) { refreshSize() }
+    }
+
+    // MARK: - Variant picker
+
+    private var variantPicker: some View {
+        Picker("", selection: Binding(
+            get: { selectedVariant },
+            set: { newVariant in
+                vm.onModelChange?(family.modelId(newVariant))
+            }
+        )) {
+            ForEach(family.variants, id: \.self) { variant in
+                Text(variant).tag(variant)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .frame(width: 80)
+        .onTapGesture {} // prevent card tap from firing
     }
 
     // MARK: - State badge
@@ -691,7 +714,7 @@ private struct ModelCardView: View {
     }
 
     private func refreshSize() {
-        let id = model.id
+        let id = currentModelId
         DispatchQueue.global(qos: .utility).async {
             let size = Self.directorySize(for: id)
             DispatchQueue.main.async { dirSize = size }

@@ -59,12 +59,19 @@ final class StatusBarController {
         menu.addItem(.separator())
 
         let modelMenu = NSMenu()
-        for (label, id) in AppConfig.availableModels {
-            let item = NSMenuItem(title: label, action: #selector(onSelectModel(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = id
-            item.state = (delegate.currentConfig.model == id) ? .on : .off
-            modelMenu.addItem(item)
+        for family in AppConfig.modelFamilies {
+            for variant in family.variants {
+                let id = family.modelId(variant)
+                let label = "\(family.name) (\(variant))"
+                let item = NSMenuItem(title: label, action: #selector(onSelectModel(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = id
+                item.state = (delegate.currentConfig.model == id) ? .on : .off
+                modelMenu.addItem(item)
+            }
+            if family.name != AppConfig.modelFamilies.last?.name {
+                modelMenu.addItem(.separator())
+            }
         }
         let modelItem = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
         modelItem.submenu = modelMenu

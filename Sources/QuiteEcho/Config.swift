@@ -2,13 +2,12 @@ import AppKit
 import Foundation
 
 struct AppConfig: Codable {
-    var model: String = "Qwen/Qwen3-ASR-0.6B"
+    var model: String = "mlx-community/Qwen3-ASR-0.6B-8bit"
     var hotkeyKeyCode: Int = 0x3F        // Fn / Globe
     var hotkeyModifiers: Int = 0         // no modifiers
     var hotkeyMode: String = "hold"      // "toggle" or "hold"
     var hotkeyIsMediaKey: Bool = false    // true = NX_KEYTYPE (special fn key)
     var language: String = ""            // empty = auto-detect
-    var pythonPath: String = ""          // empty = auto-detect
     var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
     var autoCheckUpdates: Bool = true    // check GitHub releases on launch
 
@@ -25,8 +24,15 @@ struct AppConfig: Codable {
 
     static func load() -> AppConfig {
         guard let data = try? Data(contentsOf: configFile),
-              let config = try? JSONDecoder().decode(AppConfig.self, from: data)
+              var config = try? JSONDecoder().decode(AppConfig.self, from: data)
         else { return AppConfig() }
+
+        // Reset unknown model IDs to default
+        if !modelFamilies.contains(where: { $0.hasVariant(config.model) }) {
+            config.model = AppConfig().model
+            config.save()
+        }
+
         return config
     }
 
@@ -42,15 +48,53 @@ struct AppConfig: Codable {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Model families
 
-    static let availableModels: [(label: String, id: String)] = [
-        ("Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-0.6B"),
-        ("Qwen3-ASR-1.7B", "Qwen/Qwen3-ASR-1.7B"),
+    struct ModelFamily {
+        let name: String           // e.g. "Qwen3-ASR-0.6B"
+        let description: String
+        let variants: [String]     // e.g. ["4bit", "5bit", "6bit", "8bit", "bf16"]
+        let defaultVariant: String // e.g. "8bit"
+
+        func modelId(_ variant: String) -> String {
+            "mlx-community/\(name)-\(variant)"
+        }
+
+        func hasVariant(_ modelId: String) -> Bool {
+            variants.contains { modelId == self.modelId($0) }
+        }
+
+        func variant(of modelId: String) -> String? {
+            variants.first { modelId == self.modelId($0) }
+        }
+    }
+
+    static let modelFamilies: [ModelFamily] = [
+        ModelFamily(
+            name: "Qwen3-ASR-0.6B",
+            description: "Faster inference, lower memory usage",
+            variants: ["4bit", "5bit", "6bit", "8bit", "bf16"],
+            defaultVariant: "8bit"
+        ),
+        ModelFamily(
+            name: "Qwen3-ASR-1.7B",
+            description: "Higher accuracy, requires more memory",
+            variants: ["4bit", "5bit", "6bit", "8bit", "bf16"],
+            defaultVariant: "8bit"
+        ),
     ]
 
+    var modelFamily: ModelFamily? {
+        Self.modelFamilies.first { $0.hasVariant(model) }
+    }
+
+    var modelVariant: String {
+        modelFamily?.variant(of: model) ?? "8bit"
+    }
+
     var modelLabel: String {
-        Self.availableModels.first(where: { $0.id == model })?.label ?? model
+        guard let family = modelFamily else { return model }
+        return "\(family.name) (\(modelVariant))"
     }
 
     /// HuggingFace hub cache directory for a given model ID.

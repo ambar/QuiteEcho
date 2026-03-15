@@ -21,10 +21,5 @@ sed -E -i '' \
   's/Text\("v[0-9]+\.[0-9]+\.[0-9]+"\)/Text("v'"$VERSION"'")/' \
   "$ROOT/Sources/QuiteEcho/MainWindow.swift"
 
-# 3. pyproject.toml — version = "..."
-sed -E -i '' \
-  's/^version = "[^"]*"/version = "'"$VERSION"'"/' \
-  "$ROOT/pyproject.toml"
-
 echo "Version bumped to $VERSION"
-grep -n "$VERSION" "$ROOT/Resources/Info.plist" "$ROOT/Sources/QuiteEcho/MainWindow.swift" "$ROOT/pyproject.toml"
+grep -n "$VERSION" "$ROOT/Resources/Info.plist" "$ROOT/Sources/QuiteEcho/MainWindow.swift"
