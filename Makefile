@@ -22,6 +22,7 @@ define assemble_app
 endef
 
 build:
+	@test -n "$(UV_BIN)" || (echo "Error: uv not found. Run: make build UV_BIN=/path/to/uv" && exit 1)
 	swift build -c release
 	$(call assemble_app,$(APP_BUNDLE))
 	@echo "Built $(APP_BUNDLE)"
@@ -34,6 +35,7 @@ dev:
 	@.build/debug/$(APP_NAME)
 
 dmg:
+	@test -n "$(UV_BIN)" || (echo "Error: uv not found. Run: make dmg UV_BIN=/path/to/uv" && exit 1)
 	swift build -c release
 	$(call assemble_app,$(DIST_DIR)/$(APP_NAME).app)
 	@rm -rf "$(DIST_DIR)/dmg" "$(DMG_FILE)"

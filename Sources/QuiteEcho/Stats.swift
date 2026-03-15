@@ -46,7 +46,10 @@ struct Stats: Codable {
     }
 
     func save() {
-        guard let data = try? JSONEncoder().encode(self) else { return }
+        guard let data = try? JSONEncoder().encode(self) else {
+            NSLog("[Stats] Failed to encode stats")
+            return
+        }
         UserDefaults.standard.set(data, forKey: Stats.key)
     }
 

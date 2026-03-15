@@ -30,8 +30,15 @@ struct AppConfig: Codable {
     }
 
     func save() {
-        guard let data = try? JSONEncoder().encode(self) else { return }
-        try? data.write(to: Self.configFile, options: .atomic)
+        guard let data = try? JSONEncoder().encode(self) else {
+            NSLog("[Config] Failed to encode config")
+            return
+        }
+        do {
+            try data.write(to: Self.configFile, options: .atomic)
+        } catch {
+            NSLog("[Config] Failed to write: %@", error.localizedDescription)
+        }
     }
 
     // MARK: - Helpers
@@ -43,6 +50,13 @@ struct AppConfig: Codable {
 
     var modelLabel: String {
         Self.availableModels.first(where: { $0.id == model })?.label ?? model
+    }
+
+    /// HuggingFace hub cache directory for a given model ID.
+    static func modelCacheDir(_ modelId: String) -> String {
+        let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cache/huggingface/hub/\(dirName)").path
     }
 
     var hotkeyDisplayString: String {

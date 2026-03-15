@@ -17,6 +17,7 @@ final class OverlayPanel {
     private let dotView: DotView
     private let label: NSTextField
     private var animTimer: Timer?
+    private var dismissTimer: Timer?
 
     /// Set from outside (AppDelegate timer) to drive wave amplitude.
     var audioLevel: Float = 0
@@ -122,7 +123,8 @@ final class OverlayPanel {
         let display = text.count > 28 ? String(text.prefix(28)) + "..." : text
         label.stringValue = display
         resizePanel(width: max(160, min(CGFloat(display.count) * 8 + 52, 300)))
-        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+        dismissTimer?.invalidate()
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
             self?.hide()
         }
     }
@@ -136,7 +138,8 @@ final class OverlayPanel {
         dotView.color = .systemRed
         label.stringValue = message
         resizePanel(width: 160)
-        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+        dismissTimer?.invalidate()
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
             self?.hide()
         }
     }
@@ -144,6 +147,8 @@ final class OverlayPanel {
     func hide() {
         stopWaveAnimation()
         stopPulse()
+        dismissTimer?.invalidate()
+        dismissTimer = nil
         panel.orderOut(nil)
         panel.alphaValue = 0
     }

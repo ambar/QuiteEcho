@@ -88,10 +88,13 @@ final class ASRBridge {
 
     func stop() {
         stdoutPipe?.fileHandleForReading.readabilityHandler = nil
+        (process?.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
         if let proc = process, proc.isRunning { proc.terminate() }
         process = nil
         stdinPipe = nil
         stdoutPipe = nil
+        pendingHandler?(.failure(NSError(domain: "ASR", code: -3, userInfo: [NSLocalizedDescriptionKey: "Stopped"])))
+        pendingHandler = nil
         setState(.idle)
     }
 
@@ -133,7 +136,11 @@ final class ASRBridge {
                 responseHandler?(.failure(NSError(domain: "ASR", code: -2, userInfo: [NSLocalizedDescriptionKey: "Not running"])))
                 return
             }
-            self.pendingHandler = responseHandler
+            if let responseHandler {
+                // Cancel any outstanding handler before replacing
+                self.pendingHandler?(.failure(NSError(domain: "ASR", code: -4, userInfo: [NSLocalizedDescriptionKey: "Superseded"])))
+                self.pendingHandler = responseHandler
+            }
             guard let data = try? JSONSerialization.data(withJSONObject: dict),
                   var line = String(data: data, encoding: .utf8) else { return }
             line += "\n"

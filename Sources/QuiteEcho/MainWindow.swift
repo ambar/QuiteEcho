@@ -207,7 +207,8 @@ private struct HomeView: View {
     private func startPermPollingIfNeeded() {
         guard !vm.allPermissionsGranted else { return }
         stopPermPolling()
-        permTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
+        permTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak vm] _ in
+            guard let vm else { return }
             DispatchQueue.main.async { vm.refreshPermissions() }
         }
     }
@@ -490,7 +491,6 @@ private struct ModelCardView: View {
 
     var body: some View {
         let cachePath = modelCachePath(model.id)
-        let exists = cachePath != nil
         let subtitle = model.id == "Qwen/Qwen3-ASR-0.6B"
             ? "Faster inference, lower memory usage"
             : "Higher accuracy, requires more memory"
@@ -672,9 +672,7 @@ private struct ModelCardView: View {
     // MARK: - Helpers
 
     private static func directorySize(for modelId: String) -> Int64 {
-        let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache/huggingface/hub/\(dirName)").path
+        let path = AppConfig.modelCacheDir(modelId)
         guard let enumerator = FileManager.default.enumerator(atPath: path) else { return 0 }
         var total: Int64 = 0
         while let file = enumerator.nextObject() as? String {
@@ -688,9 +686,7 @@ private struct ModelCardView: View {
     }
 
     private func modelCachePath(_ modelId: String) -> String? {
-        let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache/huggingface/hub/\(dirName)").path
+        let path = AppConfig.modelCacheDir(modelId)
         return FileManager.default.fileExists(atPath: path) ? path : nil
     }
 

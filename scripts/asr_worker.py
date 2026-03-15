@@ -162,6 +162,10 @@ def main() -> None:
 
         elif cmd == "reload":
             new_model = req.get("model", model_name)
+            valid_models = {"Qwen/Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-1.7B"}
+            if new_model not in valid_models:
+                emit({"error": f"Unknown model: {new_model}"})
+                continue
             emit({"status": "loading"})
             try:
                 model = load_model(new_model)

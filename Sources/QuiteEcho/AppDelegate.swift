@@ -257,9 +257,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Model
 
     private func isModelCached(_ modelId: String) -> Bool {
-        let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cache/huggingface/hub/\(dirName)/snapshots").path
+        let path = AppConfig.modelCacheDir(modelId) + "/snapshots"
         guard let contents = try? FileManager.default.contentsOfDirectory(atPath: path) else { return false }
         return contents.contains(where: { !$0.hasPrefix(".") })
     }
@@ -455,4 +453,6 @@ final class HotkeyRecorderWindow: NSWindow {
         if !didRecord { onCancel?() }
         super.close()
     }
+
+    deinit { close() }
 }
