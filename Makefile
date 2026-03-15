@@ -14,6 +14,7 @@ define assemble_app
 	@mkdir -p "$(1)/Contents/Resources"
 	@cp "$(BUILD_DIR)/$(APP_NAME)" "$(1)/Contents/MacOS/"
 	@cp Resources/Info.plist "$(1)/Contents/"
+	@cp Resources/AppIcon.icns "$(1)/Contents/Resources/"
 	@cp scripts/asr_worker.py "$(1)/Contents/Resources/"
 	@cp "$(UV_BIN)" "$(1)/Contents/Resources/uv"
 	@chmod +x "$(1)/Contents/Resources/uv"
