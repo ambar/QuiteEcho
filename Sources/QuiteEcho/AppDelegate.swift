@@ -260,7 +260,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
         let path = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".cache/huggingface/hub/\(dirName)/snapshots").path
-        return FileManager.default.fileExists(atPath: path)
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: path) else { return false }
+        return contents.contains(where: { !$0.hasPrefix(".") })
     }
 
     func selectModel(_ modelID: String) {
@@ -276,8 +277,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         config.useHFMirror = use
         config.save()
         viewModel.config = config
-        // Restart ASR worker so the new endpoint takes effect
-        asr.start(model: config.model, pythonPath: bootstrap.pythonPath, useHFMirror: use)
     }
 
     // MARK: - Hotkey

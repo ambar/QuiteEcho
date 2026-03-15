@@ -468,14 +468,34 @@ private struct ModelsView: View {
     }
 
     private func modelCard(_ model: (label: String, id: String)) -> some View {
-        let selected = vm.config.model == model.id
+        ModelCardView(vm: vm, model: model)
+    }
+
+}
+
+private struct ModelCardView: View {
+    @ObservedObject var vm: MainViewModel
+    let model: (label: String, id: String)
+    @State private var dirSize: Int64 = 0
+    @State private var sizeTimer: Timer?
+
+    private var selected: Bool { vm.config.model == model.id }
+    private var isLoading: Bool {
+        guard selected else { return false }
+        switch vm.asrState {
+        case .loading, .downloading: return true
+        default: return false
+        }
+    }
+
+    var body: some View {
+        let cachePath = modelCachePath(model.id)
+        let exists = cachePath != nil
         let subtitle = model.id == "Qwen/Qwen3-ASR-0.6B"
             ? "Faster inference, lower memory usage"
             : "Higher accuracy, requires more memory"
-        let cachePath = modelCachePath(model.id)
-        let exists = cachePath != nil
 
-        return VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected ? Color.accentColor : Color(nsColor: .tertiaryLabelColor))
@@ -496,8 +516,9 @@ private struct ModelsView: View {
                 }
             }
             .padding(16)
+            .contentShape(Rectangle())
+            .onTapGesture { vm.onModelChange?(model.id) }
 
-            // Download path
             Divider().padding(.horizontal, 12)
 
             if selected, case .downloading(let pct) = vm.asrState {
@@ -510,39 +531,54 @@ private struct ModelsView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                         Spacer()
+                        if dirSize > 0 {
+                            Text(formatBytes(dirSize))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     ProgressView(value: pct, total: 100)
                         .progressViewStyle(.linear)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-            } else {
+            } else if let path = cachePath {
                 HStack(spacing: 4) {
-                    Image(systemName: exists ? "folder.fill" : "arrow.down.circle")
+                    Image(systemName: "folder.fill")
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
 
-                    if let path = cachePath {
-                        Text(abbreviatePath(path))
+                    Text(abbreviatePath(path))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Spacer()
+
+                    if dirSize > 0 {
+                        Text(formatBytes(dirSize))
                             .font(.system(size: 11))
                             .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-
-                        Spacer()
-
-                        Button(action: { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path) }) {
-                            Image(systemName: "arrow.right.circle")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        Text("Downloaded on first use")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                        Spacer()
                     }
+
+                    Image(systemName: "arrow.right.circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+                .onTapGesture { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path) }
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                    Text("Downloaded on first use")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -557,9 +593,12 @@ private struct ModelsView: View {
                     lineWidth: 1
                 )
         )
-        .contentShape(Rectangle())
-        .onTapGesture { vm.onModelChange?(model.id) }
+        .onAppear { refreshSize(); updateTimer() }
+        .onDisappear { stopTimer() }
+        .onChange(of: vm.asrState) { updateTimer() }
     }
+
+    // MARK: - State badge
 
     @ViewBuilder
     private var modelStateBadge: some View {
@@ -602,6 +641,52 @@ private struct ModelsView: View {
         }
     }
 
+    // MARK: - Size polling
+
+    private func updateTimer() {
+        if isLoading {
+            guard sizeTimer == nil else { return }
+            let timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                refreshSize()
+            }
+            sizeTimer = timer
+        } else {
+            stopTimer()
+            refreshSize()
+        }
+    }
+
+    private func stopTimer() {
+        sizeTimer?.invalidate()
+        sizeTimer = nil
+    }
+
+    private func refreshSize() {
+        let id = model.id
+        DispatchQueue.global(qos: .utility).async {
+            let size = Self.directorySize(for: id)
+            DispatchQueue.main.async { dirSize = size }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private static func directorySize(for modelId: String) -> Int64 {
+        let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cache/huggingface/hub/\(dirName)").path
+        guard let enumerator = FileManager.default.enumerator(atPath: path) else { return 0 }
+        var total: Int64 = 0
+        while let file = enumerator.nextObject() as? String {
+            let full = (path as NSString).appendingPathComponent(file)
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: full),
+               let size = attrs[.size] as? Int64 {
+                total += size
+            }
+        }
+        return total
+    }
+
     private func modelCachePath(_ modelId: String) -> String? {
         let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
         let path = FileManager.default.homeDirectoryForCurrentUser
@@ -611,6 +696,12 @@ private struct ModelsView: View {
 
     private func abbreviatePath(_ path: String) -> String {
         path.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~")
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 }
 
