@@ -24,7 +24,23 @@ jobs:
       - name: Select Xcode 26
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
       - name: Install Metal Toolchain
-        run: xcodebuild -downloadComponent MetalToolchain
+        run: |
+          xcodebuild -downloadComponent MetalToolchain
+          if ! xcrun --find metal 2>/dev/null; then
+            echo "Metal tools not in PATH after download, installing from DMG..."
+            DMG=$(find /System/Library/AssetsV2/com_apple_MobileAsset_MetalToolchain -name '*.dmg' 2>/dev/null | head -1)
+            if [ -n "$DMG" ]; then
+              MNT=$(mktemp -d)
+              hdiutil attach "$DMG" -mountpoint "$MNT" -nobrowse -quiet
+              sudo installer -pkg "$MNT"/*.pkg -target /
+              hdiutil detach "$MNT" -quiet
+            else
+              echo "::error::Metal Toolchain DMG not found"
+              exit 1
+            fi
+          fi
+          xcrun --find metal
+          xcrun --find metallib
       - name: Build DMG
         run: make dmg
       - name: Rename DMG with version
