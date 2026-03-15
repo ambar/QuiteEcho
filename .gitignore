@@ -1,0 +1,31 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# App bundle
+*.app/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.swp

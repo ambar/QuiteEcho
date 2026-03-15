@@ -1,0 +1,18 @@
+[project]
+name = "quiteecho-asr-worker"
+version = "0.1.0"
+description = "ASR worker dependencies for QuiteEcho"
+requires-python = ">=3.10"
+dependencies = [
+    "qwen-asr>=0.0.6",
+    "torch>=2.0",
+]
+
+# Note: for app distribution, torch and qwen-asr are installed dynamically
+# at first launch by BootstrapManager (via bundled uv binary).
+# pyproject.toml deps are for local development only.
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.19.0",
+]
