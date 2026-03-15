@@ -267,6 +267,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func selectModel(_ modelID: String) {
         guard modelID != config.model else { return }
         config.model = modelID
+        // Remember the variant choice for this family
+        if let family = AppConfig.modelFamilies.first(where: { $0.hasVariant(modelID) }),
+           let variant = family.variant(of: modelID) {
+            config.modelVariants[family.name] = variant
+        }
         config.save()
         viewModel.config = config
         asr.reload(model: modelID, useHFMirror: config.useHFMirror)

@@ -510,7 +510,7 @@ private struct ModelCardView: View {
     }
 
     private var selectedVariant: String {
-        family.variant(of: vm.config.model) ?? family.defaultVariant
+        family.variant(of: vm.config.model) ?? vm.config.variant(for: family)
     }
 
     private var selected: Bool { family.hasVariant(vm.config.model) }

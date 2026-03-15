@@ -10,6 +10,7 @@ struct AppConfig: Codable {
     var language: String = ""            // empty = auto-detect
     var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
     var autoCheckUpdates: Bool = true    // check GitHub releases on launch
+    var modelVariants: [String: String] = [:]  // family name → selected variant (e.g. "Qwen3-ASR-0.6B": "4bit")
 
     // MARK: - Persistence
 
@@ -95,6 +96,11 @@ struct AppConfig: Codable {
     var modelLabel: String {
         guard let family = modelFamily else { return model }
         return "\(family.name) (\(modelVariant))"
+    }
+
+    /// Get the remembered variant for a family, falling back to its default.
+    func variant(for family: ModelFamily) -> String {
+        modelVariants[family.name] ?? family.defaultVariant
     }
 
     /// HuggingFace hub cache directory for a given model ID.
