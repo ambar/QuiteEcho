@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBarController(delegate: self)
 
         viewModel.onModelChange = { [weak self] id in self?.selectModel(id) }
+        viewModel.onHFMirrorChange = { [weak self] enabled in self?.setHFMirror(enabled) }
         viewModel.onChangeHotkey = { [weak self] in self?.changeHotkey() }
         viewModel.onSelectHotkeyPreset = { [weak self] preset in self?.applyHotkeyPreset(preset) }
         viewModel.onTogglePlayground = { [weak self] in self?.togglePlaygroundRecording() }
@@ -37,14 +38,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         asr.onStateChange = { [weak self] state in
             guard let self else { return }
-            self.viewModel.asrState = state
+            switch state {
+            case .downloading where self.isModelCached(self.config.model):
+                // Model already cached — suppress downloading status
+                break
+            default:
+                self.viewModel.asrState = state
+            }
             switch state {
             case .idle:
                 self.statusBar.setStatus("Idle")
                 self.statusBar.setLoading(false)
-            case .downloading(let pct):
+            case .downloading(let pct) where !self.isModelCached(self.config.model):
                 self.statusBar.setStatus("Downloading model... \(Int(pct))%")
                 self.statusBar.setLoading(true)
+            case .downloading:
+                break
             case .loading:
                 self.statusBar.setStatus("Loading model...")
                 self.statusBar.setLoading(true)
@@ -82,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             switch result {
             case .success:
-                self.asr.start(model: self.config.model, pythonPath: self.bootstrap.pythonPath)
+                self.asr.start(model: self.config.model, pythonPath: self.bootstrap.pythonPath, useHFMirror: self.config.useHFMirror)
             case .failure(let error):
                 NSLog("[Bootstrap] %@", error.localizedDescription)
             }
@@ -247,6 +256,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Model
 
+    private func isModelCached(_ modelId: String) -> Bool {
+        let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cache/huggingface/hub/\(dirName)/snapshots").path
+        return FileManager.default.fileExists(atPath: path)
+    }
+
     func selectModel(_ modelID: String) {
         guard modelID != config.model else { return }
         config.model = modelID
@@ -254,6 +270,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.config = config
         asr.reload(model: modelID)
         statusBar.rebuildMenu()
+    }
+
+    func setHFMirror(_ use: Bool) {
+        config.useHFMirror = use
+        config.save()
+        viewModel.config = config
+        // Restart ASR worker so the new endpoint takes effect
+        asr.start(model: config.model, pythonPath: bootstrap.pythonPath, useHFMirror: use)
     }
 
     // MARK: - Hotkey

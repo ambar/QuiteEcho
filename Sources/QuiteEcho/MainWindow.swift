@@ -54,6 +54,7 @@ final class MainViewModel: ObservableObject {
     @Published var permMicrophone: Bool = false
 
     var onModelChange: ((String) -> Void)?
+    var onHFMirrorChange: ((Bool) -> Void)?
     var onChangeHotkey: (() -> Void)?                        // custom recorder
     var onSelectHotkeyPreset: ((HotkeyPreset) -> Void)?      // preset selection
     var onTogglePlayground: (() -> Void)?
@@ -442,6 +443,22 @@ private struct ModelsView: View {
                         modelCard(model)
                     }
                 }
+
+                // Mirror source
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Download Source")
+                        .font(.system(size: 14, weight: .semibold))
+
+                    Picker("", selection: Binding(
+                        get: { vm.config.useHFMirror },
+                        set: { vm.onHFMirrorChange?($0) }
+                    )) {
+                        Text("Hugging Face (Official)").tag(false)
+                        Text("HF Mirror (hf-mirror.com)").tag(true)
+                    }
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
+                }
             }
             .padding(32)
             .padding(.top, 24)
@@ -475,13 +492,7 @@ private struct ModelsView: View {
                 Spacer()
 
                 if selected {
-                    Text("Active")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.1))
-                        .clipShape(Capsule())
+                    modelStateBadge
                 }
             }
             .padding(16)
@@ -489,35 +500,53 @@ private struct ModelsView: View {
             // Download path
             Divider().padding(.horizontal, 12)
 
-            HStack(spacing: 4) {
-                Image(systemName: exists ? "folder.fill" : "arrow.down.circle")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-
-                if let path = cachePath {
-                    Text(abbreviatePath(path))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    Spacer()
-
-                    Button(action: { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path) }) {
-                        Image(systemName: "arrow.right.circle")
+            if selected, case .downloading(let pct) = vm.asrState {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        Text("Downloading… \(Int(pct))%")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    Text("Downloaded on first use")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                    Spacer()
+                    ProgressView(value: pct, total: 100)
+                        .progressViewStyle(.linear)
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: exists ? "folder.fill" : "arrow.down.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+
+                    if let path = cachePath {
+                        Text(abbreviatePath(path))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+
+                        Spacer()
+
+                        Button(action: { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path) }) {
+                            Image(systemName: "arrow.right.circle")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Text("Downloaded on first use")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
         }
         .background(Color(nsColor: .controlBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -530,6 +559,47 @@ private struct ModelsView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { vm.onModelChange?(model.id) }
+    }
+
+    @ViewBuilder
+    private var modelStateBadge: some View {
+        switch vm.asrState {
+        case .loading, .downloading:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small)
+                Text("Loading")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color(nsColor: .separatorColor).opacity(0.3))
+            .clipShape(Capsule())
+        case .ready:
+            Text("Ready")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.green)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.green.opacity(0.1))
+                .clipShape(Capsule())
+        case .error:
+            Text("Error")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.red)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.red.opacity(0.1))
+                .clipShape(Capsule())
+        default:
+            Text("Active")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.accentColor.opacity(0.1))
+                .clipShape(Capsule())
+        }
     }
 
     private func modelCachePath(_ modelId: String) -> String? {

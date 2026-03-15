@@ -30,7 +30,7 @@ final class ASRBridge {
 
     // MARK: - Lifecycle
 
-    func start(model: String, pythonPath: String = "") {
+    func start(model: String, pythonPath: String = "", useHFMirror: Bool = false) {
         stop()
         setState(.loading)
 
@@ -40,7 +40,11 @@ final class ASRBridge {
         proc.executableURL = URL(fileURLWithPath: python)
         proc.arguments = [workerScript, model]
 
-        proc.environment = ProcessInfo.processInfo.environment
+        var env = ProcessInfo.processInfo.environment
+        if useHFMirror {
+            env["HF_ENDPOINT"] = "https://hf-mirror.com"
+        }
+        proc.environment = env
 
         let stdin = Pipe()
         let stdout = Pipe()

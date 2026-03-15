@@ -9,6 +9,7 @@ struct AppConfig: Codable {
     var hotkeyIsMediaKey: Bool = false    // true = NX_KEYTYPE (special fn key)
     var language: String = ""            // empty = auto-detect
     var pythonPath: String = ""          // empty = auto-detect
+    var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
 
     // MARK: - Persistence
 
