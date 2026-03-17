@@ -7,6 +7,10 @@ on:
       tag:
         description: "Tag to release (e.g. v0.2.1)"
         required: true
+      build_only:
+        description: "Only build, skip publishing release"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -56,8 +60,10 @@ jobs:
       - name: Build DMG
         run: make dmg
       - name: Rename DMG with version
+        if: ${{ !inputs.build_only }}
         run: mv dist/QuiteEcho.dmg "dist/QuiteEcho-${TAG#v}.dmg"
       - name: Create GitHub Release
+        if: ${{ !inputs.build_only }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$TAG" "dist/QuiteEcho-${TAG#v}.dmg" --generate-notes
