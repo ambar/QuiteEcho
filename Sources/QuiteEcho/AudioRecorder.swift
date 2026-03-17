@@ -10,6 +10,8 @@ final class AudioRecorder {
 
     /// Start recording.  Throws if the audio engine fails to start.
     func start() throws {
+        guard !isRecording else { return }
+
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("quiteecho_\(UUID().uuidString).wav")
 
@@ -19,6 +21,8 @@ final class AudioRecorder {
         // Write in hardware format; the Python worker resamples to 16 kHz.
         audioFile = try AVAudioFile(forWriting: url, settings: hwFormat.settings)
 
+        // Remove any stale tap before installing a new one.
+        node.removeTap(onBus: 0)
         node.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) {
             [weak self] buffer, _ in
             guard let self else { return }
