@@ -112,6 +112,7 @@ final class MainWindowController {
         )
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
+        w.titlebarSeparatorStyle = .none
         w.isReleasedWhenClosed = false
         w.contentView = hosting
         w.contentMinSize = NSSize(width: 640, height: 420)
@@ -147,12 +148,12 @@ struct MainWindowView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Spacer().frame(height: 52)
+            Spacer().frame(height: 38)
 
             ForEach(Tab.allCases, id: \.self) { tab in
                 Button(action: { vm.selectedTab = tab }) {
                     Text(tab.rawValue)
-                        .font(.system(size: 13, weight: vm.selectedTab == tab ? .semibold : .regular))
+                        .font(.system(size: 14, weight: vm.selectedTab == tab ? .semibold : .regular))
                         .foregroundStyle(vm.selectedTab == tab ? .primary : .secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12)
@@ -210,7 +211,7 @@ private struct HomeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer().frame(height: 52)
+            Spacer().frame(height: 38)
 
             if vm.allPermissionsGranted {
                 mainContent
@@ -219,7 +220,7 @@ private struct HomeView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
         .onAppear {
             vm.refreshPermissions()
             startPermPollingIfNeeded()
@@ -251,15 +252,54 @@ private struct HomeView: View {
 
     private var mainContent: some View {
         VStack(spacing: 0) {
-            usageStats
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+            ScrollView {
+                VStack(spacing: 20) {
+                    heroSection
+                    usageGrid
+                    hotkeyHint
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 20)
+                .padding(.bottom, 24)
+            }
 
-            Spacer()
+            Divider()
 
             statusLine
-                .padding(.bottom, 16)
+                .padding(.vertical, 10)
         }
+    }
+
+    // MARK: Hero
+
+    private var heroSection: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.12))
+                    .frame(width: 48, height: 48)
+                Image(systemName: "waveform")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("QuiteEcho")
+                    .font(.system(size: 18, weight: .bold))
+                Text("Fast, private, offline speech-to-text. Stay in your flow.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(18)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+        )
     }
 
     // MARK: Permissions (not granted)
@@ -374,42 +414,90 @@ private struct HomeView: View {
         }
     }
 
-    // MARK: Usage
+    // MARK: Usage grid
 
-    private var usageStats: some View {
+    private var usageGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Usage")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
+                .padding(.leading, 4)
 
-            HStack(spacing: 0) {
-                stat(vm.stats.formattedTime, "Dictation time")
-                stat("\(vm.stats.wordsDictated)", "Words")
-                stat("\(vm.stats.sessionsCount)", "Sessions")
-                stat(vm.stats.timeSaved, "Time saved")
-                stat("\(vm.stats.avgWPM)", "Avg WPM")
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10),
+            ], spacing: 10) {
+                statCard(vm.stats.formattedTime, "Dictation", icon: "mic.fill", color: .blue)
+                statCard("\(vm.stats.wordsDictated)", "Words", icon: "text.word.spacing", color: .purple)
+                statCard("\(vm.stats.sessionsCount)", "Sessions", icon: "repeat", color: .orange)
+                statCard(vm.stats.timeSaved, "Time saved", icon: "clock.arrow.circlepath", color: .green)
+                statCard("\(vm.stats.avgWPM)", "Avg WPM", icon: "gauge.with.dots.needle.33percent", color: .pink)
             }
         }
-        .padding(16)
+    }
+
+    private func statCard(_ value: String, _ label: String, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(color)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                Text(label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
         .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10)
                 .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
         )
     }
 
-    private func stat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-            Text(label)
-                .font(.system(size: 10))
+    // MARK: Hotkey hint
+
+    private var hotkeyHint: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "keyboard")
+                .font(.system(size: 14))
                 .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Press \(vm.config.hotkeyDisplayString) to start dictating")
+                    .font(.system(size: 13, weight: .medium))
+                Text("Mode: \(vm.config.hotkeyMode == "hold" ? "Hold to record" : "Toggle on/off")")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button(action: { vm.selectedTab = .settings }) {
+                Text("Change")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.accentColor.opacity(0.1))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+        )
     }
 
     // MARK: Status (bottom center)
@@ -459,42 +547,46 @@ private struct ModelsView: View {
     @ObservedObject var vm: MainViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Models")
-                    .font(.system(size: 22, weight: .bold))
+        VStack(spacing: 0) {
+            Spacer().frame(height: 38)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Models")
+                        .font(.system(size: 22, weight: .bold))
 
-                Text("Select the ASR model for transcription.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                    Text("Select the ASR model for transcription.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
 
-                VStack(spacing: 10) {
-                    ForEach(Array(AppConfig.modelFamilies.enumerated()), id: \.offset) { _, family in
-                        ModelCardView(vm: vm, family: family)
+                    VStack(spacing: 10) {
+                        ForEach(Array(AppConfig.modelFamilies.enumerated()), id: \.offset) { _, family in
+                            ModelCardView(vm: vm, family: family)
+                        }
+                    }
+
+                    // Mirror source
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Download Source")
+                            .font(.system(size: 14, weight: .semibold))
+
+                        Picker("", selection: Binding(
+                            get: { vm.config.useHFMirror },
+                            set: { vm.onHFMirrorChange?($0) }
+                        )) {
+                            Text("Hugging Face (Official)").tag(false)
+                            Text("HF Mirror (hf-mirror.com)").tag(true)
+                        }
+                        .pickerStyle(.radioGroup)
+                        .labelsHidden()
                     }
                 }
-
-                // Mirror source
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Download Source")
-                        .font(.system(size: 14, weight: .semibold))
-
-                    Picker("", selection: Binding(
-                        get: { vm.config.useHFMirror },
-                        set: { vm.onHFMirrorChange?($0) }
-                    )) {
-                        Text("Hugging Face (Official)").tag(false)
-                        Text("HF Mirror (hf-mirror.com)").tag(true)
-                    }
-                    .pickerStyle(.radioGroup)
-                    .labelsHidden()
-                }
+                .padding(.horizontal, 32)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
             }
-            .padding(32)
-            .padding(.top, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
     }
 
 }
@@ -759,12 +851,14 @@ private struct SettingsView: View {
     @ObservedObject var vm: MainViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Settings")
-                    .font(.system(size: 22, weight: .bold))
+        VStack(spacing: 0) {
+            Spacer().frame(height: 38)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Settings")
+                        .font(.system(size: 22, weight: .bold))
 
-                // Hotkey
+                    // Hotkey
                 card {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Hotkey")
@@ -943,11 +1037,13 @@ private struct SettingsView: View {
                         .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
                 )
             }
-            .padding(32)
-            .padding(.top, 24)
+                .padding(.horizontal, 32)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
         .onAppear { vm.refreshPermissions() }
     }
 
