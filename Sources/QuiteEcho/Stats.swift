@@ -20,13 +20,16 @@ struct Stats: Codable {
         return "\(total / 3600)h \((total % 3600) / 60)m"
     }
 
-    /// Estimated time saved vs typing.
-    /// English: ~40 WPM typing, CJK: ~30 chars/min typing.
+    /// Estimated time saved vs typing (~35 WPM average).
+    /// 35 WPM is a rough middle ground: casual English typists average
+    /// ~40 WPM, but CJK input (pinyin/IME) is closer to ~25-30 WPM
+    /// due to candidate selection overhead. ICU word segmentation counts
+    /// CJK characters as individual words, so this single rate works
+    /// reasonably across languages.
     var timeSaved: String {
-        guard charactersDictated > 0, totalSeconds > 0 else { return "--" }
-        // Estimate typing time based on character count (works for all languages)
-        let typingCharsPerMin: Double = 35
-        let typingSeconds = Double(charactersDictated) / typingCharsPerMin * 60.0
+        guard wordsDictated > 0, totalSeconds > 0 else { return "--" }
+        let typingWPM: Double = 35
+        let typingSeconds = Double(wordsDictated) / typingWPM * 60.0
         let saved = max(0, typingSeconds - totalSeconds)
         let s = Int(saved)
         if s < 60  { return "\(s)s" }
