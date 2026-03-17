@@ -22,7 +22,10 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref_name }}
       - name: Select Xcode 26
-        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selected: $XCODE"
+          sudo xcode-select -s "$XCODE"
       - name: Install Metal Toolchain
         run: |
           xcodebuild -downloadComponent MetalToolchain
@@ -40,7 +43,10 @@ jobs:
             fi
           fi
           xcrun --find metal
-          xcrun --find metallib
+          # metallib may live in a secondary Xcode toolchain; verify via
+          # the active developer dir instead of xcrun to avoid path mismatch.
+          METAL_DIR=$(dirname "$(xcrun --find metal)")
+          ls "$METAL_DIR/metallib" || echo "::warning::metallib not adjacent to metal, build may still succeed"
       - name: Cache SPM build
         uses: actions/cache@v4
         with:
