@@ -3,7 +3,7 @@ import Foundation
 
 /// Records microphone audio and writes it to a temporary WAV file.
 final class AudioRecorder {
-    private let engine = AVAudioEngine()
+    private var engine: AVAudioEngine?
     private var audioFile: AVAudioFile?
     private(set) var isRecording = false
     private(set) var level: Float = 0
@@ -12,17 +12,20 @@ final class AudioRecorder {
     func start() throws {
         guard !isRecording else { return }
 
+        // Fresh engine each session — reusing an engine after stop() can leave
+        // the internal graph in an inconsistent state, causing installTap to
+        // throw an uncatchable NSException on rapid start/stop cycles.
+        let eng = AVAudioEngine()
+
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("quiteecho_\(UUID().uuidString).wav")
 
-        let node = engine.inputNode
+        let node = eng.inputNode
         let hwFormat = node.outputFormat(forBus: 0)
 
-        // Write in hardware format; the Python worker resamples to 16 kHz.
+        // Write in hardware format; the ASR bridge resamples to 16 kHz.
         audioFile = try AVAudioFile(forWriting: url, settings: hwFormat.settings)
 
-        // Remove any stale tap before installing a new one.
-        node.removeTap(onBus: 0)
         node.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) {
             [weak self] buffer, _ in
             guard let self else { return }
@@ -37,14 +40,17 @@ final class AudioRecorder {
             }
         }
 
-        try engine.start()
+        try eng.start()
+        engine = eng
         isRecording = true
     }
 
     /// Stop recording and return the WAV file URL (nil if nothing was captured).
     func stop() -> URL? {
-        engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        guard let eng = engine else { return nil }
+        eng.stop()
+        eng.inputNode.removeTap(onBus: 0)
+        engine = nil
         isRecording = false
 
         let url = audioFile?.url
