@@ -4,9 +4,6 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to release (e.g. v0.2.1)"
-        required: true
       build_only:
         description: "Only build, skip publishing release"
         type: boolean
@@ -16,7 +13,7 @@ permissions:
   contents: write
 
 env:
-  TAG: ${{ inputs.tag || github.ref_name }}
+  TAG: ${{ github.ref_name }}
 
 jobs:
   release:
@@ -24,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
       - name: Select Xcode 26
         run: |
           XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
@@ -62,8 +59,31 @@ jobs:
       - name: Rename DMG with version
         if: ${{ !inputs.build_only }}
         run: mv dist/QuiteEcho.dmg "dist/QuiteEcho-${TAG#v}.dmg"
+      - name: Build release body
+        if: ${{ !inputs.build_only }}
+        run: |
+          # Read annotated tag message (empty for lightweight tags)
+          BODY=$(git tag -l --format='%(contents)' "$TAG" | sed '/^$/d')
+
+          # Find previous release tag for Full Changelog link
+          PREV_TAG=$(git tag -l "v*" --sort=-v:refname | grep -v beta | grep -v "^${TAG}$" | head -1)
+          if [ -n "$PREV_TAG" ]; then
+            REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            BODY="${BODY}
+
+          **Full Changelog**: ${REPO_URL}/compare/${PREV_TAG}...${TAG}"
+          fi
+
+          # Write to file for gh release
+          printf '%s\n' "$BODY" > /tmp/release-body.md
       - name: Create GitHub Release
         if: ${{ !inputs.build_only }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" "dist/QuiteEcho-${TAG#v}.dmg" --generate-notes
+        run: |
+          ARGS=("$TAG" "dist/QuiteEcho-${TAG#v}.dmg" --notes-file /tmp/release-body.md)
+          # Mark beta tags as pre-release
+          if [[ "$TAG" == *-beta* ]]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "${ARGS[@]}"
