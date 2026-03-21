@@ -7,11 +7,23 @@ argument-hint: "[beta] [patch|minor|major|x.y.z]"
 
 Follow these steps to release a new version of QuiteEcho:
 
-## 1. Read current version
+## 1. Ask release type if no arguments
 
-Read `pyproject.toml` and extract the current `version = "..."` value.
+If `$ARGUMENTS` is empty, ask the user:
 
-## 2. Determine release type
+```
+Release type?
+1. beta — pre-release (no version bump)
+2. release — normal release (patch bump by default)
+```
+
+Wait for the user to answer before proceeding. Use their answer as the argument for the next steps.
+
+## 2. Read current version
+
+Read `Resources/Info.plist` and extract the current `CFBundleShortVersionString` value.
+
+## 3. Determine release type
 
 Look at `$ARGUMENTS`:
 
@@ -27,7 +39,7 @@ Look at `$ARGUMENTS`:
 - **`major`**: bump major, reset minor and patch (e.g. `0.1.3` → `1.0.0`)
 - **Explicit semver (e.g. `1.0.0`)**: use it as-is
 
-## 3. Generate changelog
+## 4. Generate changelog
 
 Find the previous release tag:
 
@@ -43,7 +55,7 @@ git log {prev_tag}..HEAD --pretty=format:"- %s" --no-merges
 
 Show the changelog to the user.
 
-## 4. Confirm with user
+## 5. Confirm with user
 
 For **normal release**, show:
 
@@ -65,7 +77,7 @@ Changelog:
 
 Wait for the user to confirm before proceeding. Do NOT continue without confirmation.
 
-## 5. Bump version (normal release only)
+## 6. Bump version (normal release only)
 
 Skip this step for beta releases.
 
@@ -77,7 +89,7 @@ bash scripts/bump-version.sh {new_version}
 
 This updates `Resources/Info.plist`, `Sources/QuiteEcho/MainWindow.swift`, and `pyproject.toml`.
 
-## 6. Commit (normal release only)
+## 7. Commit (normal release only)
 
 Skip this step for beta releases.
 
@@ -86,7 +98,7 @@ git add Resources/Info.plist Sources/QuiteEcho/MainWindow.swift pyproject.toml
 git commit -m "Release v{new_version}"
 ```
 
-## 7. Tag
+## 8. Tag
 
 Create an **annotated** tag with the changelog as the message. Use a heredoc to pass the message:
 
@@ -97,7 +109,7 @@ EOF
 )"
 ```
 
-## 8. Ask about push
+## 9. Ask about push
 
 Ask the user whether to push now. Explain that pushing will trigger the GitHub Actions workflow to build a DMG and create a GitHub Release.
 
