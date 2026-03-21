@@ -1,13 +1,14 @@
 import AppKit
 import QuartzCore
 
-private let kPanelH: CGFloat = 36
+private let kPanelH: CGFloat = 30
+private let kPanelW: CGFloat = 90
 private let kBarCount = 5
-private let kBarWidth: CGFloat = 3
-private let kBarGap: CGFloat = 3.5
-private let kBarMaxH: CGFloat = 18
-private let kBarMinH: CGFloat = 3
-private let kIdleH: CGFloat = 5
+private let kBarWidth: CGFloat = 3.5
+private let kBarGap: CGFloat = 4
+private let kBarMaxH: CGFloat = 22
+private let kBarMinH: CGFloat = 4
+private let kIdleH: CGFloat = 6
 
 /// A floating capsule HUD at the bottom of the screen.
 final class OverlayPanel {
@@ -24,14 +25,13 @@ final class OverlayPanel {
 
     init() {
         let barsW = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
-        let maxPanelW: CGFloat = 200
 
         let screen = NSScreen.main?.frame ?? .zero
-        let x = (screen.width - maxPanelW) / 2
+        let x = (screen.width - kPanelW) / 2
         let y = screen.height * 0.10
 
         panel = NSPanel(
-            contentRect: NSRect(x: x, y: y, width: maxPanelW, height: kPanelH),
+            contentRect: NSRect(x: x, y: y, width: kPanelW, height: kPanelH),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -45,15 +45,15 @@ final class OverlayPanel {
         panel.alphaValue = 0
 
         // Solid black rounded container
-        container = NSView(frame: NSRect(x: 0, y: 0, width: maxPanelW, height: kPanelH))
+        container = NSView(frame: NSRect(x: 0, y: 0, width: kPanelW, height: kPanelH))
         container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.black.cgColor
+        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.9).cgColor
         container.layer?.cornerRadius = kPanelH / 2
         container.layer?.masksToBounds = true
         panel.contentView = container
 
         // Wave bars (centered in panel)
-        let barsX = (maxPanelW - barsW) / 2
+        let barsX = (kPanelW - barsW) / 2
         let barsY = (kPanelH - kBarMaxH) / 2
         waveView = WaveBarView(frame: NSRect(x: barsX, y: barsY, width: barsW, height: kBarMaxH))
         waveView.isHidden = true
@@ -64,11 +64,12 @@ final class OverlayPanel {
         dotView = DotView(frame: NSRect(x: 16, y: (kPanelH - dotSize) / 2, width: dotSize, height: dotSize))
         container.addSubview(dotView)
 
-        // Label (vertically centered)
-        label = NSTextField(frame: NSRect(x: 30, y: 0, width: maxPanelW - 48, height: kPanelH))
+        // Label (centered both vertically and horizontally)
+        label = NSTextField(frame: NSRect(x: 0, y: 0, width: kPanelW, height: kPanelH))
         let cell = VerticallyCenteredTextFieldCell()
         cell.font = .systemFont(ofSize: 12, weight: .medium)
         cell.textColor = .white
+        cell.alignment = .center
         cell.isEditable = false
         cell.isBordered = false
         cell.drawsBackground = false
@@ -82,14 +83,12 @@ final class OverlayPanel {
     // MARK: - Public
 
     func showRecording() {
+        dismissTimer?.invalidate()
+        dismissTimer = nil
         stopPulse()
         dotView.isHidden = true
         label.isHidden = true
         waveView.isHidden = false
-
-        let barsW = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
-        let compactW = barsW + 36
-        resizePanel(width: compactW)
 
         panel.alphaValue = 1
         panel.orderFrontRegardless()
@@ -97,18 +96,16 @@ final class OverlayPanel {
     }
 
     func showProcessing() {
+        dismissTimer?.invalidate()
+        dismissTimer = nil
         stopWaveAnimation()
         waveView.isHidden = true
         dotView.isHidden = false
         label.isHidden = true
         dotView.color = .white
-
-        let barsW = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
-        let compactW = barsW + 36
-        resizePanel(width: compactW)
-        // Center dot in compact panel
+        // Center dot in panel
         let dotSize = dotView.frame.size
-        dotView.frame.origin.x = (compactW - dotSize.width) / 2
+        dotView.frame.origin.x = (kPanelW - dotSize.width) / 2
 
         startPulse()
     }
@@ -117,12 +114,10 @@ final class OverlayPanel {
         stopWaveAnimation()
         stopPulse()
         waveView.isHidden = true
-        dotView.isHidden = false
+        dotView.isHidden = true
         label.isHidden = false
-        dotView.color = .systemGreen
         let display = text.count > 28 ? String(text.prefix(28)) + "..." : text
         label.stringValue = display
-        resizePanel(width: max(160, min(CGFloat(display.count) * 8 + 52, 300)))
         dismissTimer?.invalidate()
         dismissTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
             self?.hide()
@@ -133,11 +128,9 @@ final class OverlayPanel {
         stopWaveAnimation()
         stopPulse()
         waveView.isHidden = true
-        dotView.isHidden = false
+        dotView.isHidden = true
         label.isHidden = false
-        dotView.color = .systemRed
         label.stringValue = message
-        resizePanel(width: 160)
         dismissTimer?.invalidate()
         dismissTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
             self?.hide()
@@ -154,25 +147,6 @@ final class OverlayPanel {
     }
 
     // MARK: - Internals
-
-    private func resizePanel(width: CGFloat) {
-        let screen = NSScreen.main?.frame ?? .zero
-        var frame = panel.frame
-        let cx = screen.midX
-        frame.origin.x = cx - width / 2
-        frame.size.width = width
-        panel.setFrame(frame, display: true)
-
-        container.frame = NSRect(x: 0, y: 0, width: width, height: kPanelH)
-
-        // Re-center wave
-        let barsW = CGFloat(kBarCount) * kBarWidth + CGFloat(kBarCount - 1) * kBarGap
-        waveView.frame.origin.x = (width - barsW) / 2
-
-        // Reposition dot + label
-        dotView.frame.origin.x = 16
-        label.frame = NSRect(x: 30, y: 0, width: width - 48, height: kPanelH)
-    }
 
     private func startPulse() {
         stopPulse()
