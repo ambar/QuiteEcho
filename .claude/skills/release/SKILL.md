@@ -47,13 +47,32 @@ Find the previous release tag:
 git tag -l "v*" --sort=-v:refname | grep -v beta | head -1
 ```
 
-Generate a changelog of commits since that tag:
+Generate a list of commits since that tag:
 
 ```bash
-git log {prev_tag}..HEAD --pretty=format:"- %s" --no-merges
+git log {prev_tag}..HEAD --pretty=format:"%s" --no-merges
 ```
 
-Show the changelog to the user.
+Classify each commit by its semantic meaning into these categories (judge by the full message, not just prefix):
+
+- **Features** — new functionality, new support, additions (e.g. "Add ...", "Support ...", "Implement ...")
+- **Bug Fixes** — fixes, corrections (e.g. "Fix ...", "Resolve ...", "Correct ...")
+- **Other** — refactors, CI changes, docs, chores, style tweaks, etc.
+
+Format the changelog with category headers. Omit empty categories:
+
+```
+### Features
+- Add beta pre-release support and annotated tags
+
+### Bug Fixes
+- Fix AudioRecorder crash: use per-session AVAudioEngine
+
+### Other
+- Update release.yml
+```
+
+Show the formatted changelog to the user.
 
 ## 5. Confirm with user
 
