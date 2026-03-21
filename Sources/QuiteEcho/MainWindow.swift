@@ -59,6 +59,7 @@ final class MainViewModel: ObservableObject {
     var onSelectHotkeyPreset: ((HotkeyPreset) -> Void)?      // preset selection
     var onTogglePlayground: (() -> Void)?
     var onHotkeyModeChange: ((String) -> Void)?
+    var onLanguageChange: ((String) -> Void)?
     var onCheckUpdate: (() -> Void)?
     var onAutoCheckChange: ((Bool) -> Void)?
 
@@ -867,16 +868,6 @@ private struct SettingsView: View {
                             .textCase(.uppercase)
 
                         hotkeyPicker
-                    }
-                }
-
-                // Mode
-                card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Mode")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
 
                         VStack(spacing: 0) {
                             modeButton("Toggle", value: "toggle",
@@ -890,6 +881,34 @@ private struct SettingsView: View {
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
                         )
+                    }
+                }
+
+                // Speech Language
+                card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Speech Language")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+
+                        HStack {
+                            Text("Language for speech recognition")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Picker("", selection: Binding(
+                                get: { vm.config.language },
+                                set: { vm.onLanguageChange?($0) }
+                            )) {
+                                Text("Auto").tag("")
+                                ForEach(AppConfig.supportedLanguages, id: \.self) { lang in
+                                    Text(lang).tag(lang)
+                                }
+                            }
+                            .labelsHidden()
+                            .fixedSize()
+                        }
                     }
                 }
 

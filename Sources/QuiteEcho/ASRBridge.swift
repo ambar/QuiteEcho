@@ -63,6 +63,8 @@ final class ASRBridge {
                 if let lang = language, !lang.isEmpty {
                     output = model.generate(audio: audioArray, language: lang)
                 } else {
+                    // No language specified — model defaults to English
+                    // (Qwen3-ASR hardcodes "English" in defaultGenerationParameters)
                     output = model.generate(audio: audioArray)
                 }
                 DispatchQueue.main.async {

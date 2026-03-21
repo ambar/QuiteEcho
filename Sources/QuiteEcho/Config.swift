@@ -7,7 +7,19 @@ struct AppConfig: Codable {
     var hotkeyModifiers: Int = 0         // no modifiers
     var hotkeyMode: String = "hold"      // "toggle" or "hold"
     var hotkeyIsMediaKey: Bool = false    // true = NX_KEYTYPE (special fn key)
-    var language: String = ""            // empty = auto-detect
+    var language: String = ""            // empty = model default (English); true auto-detect not supported by Qwen3-ASR
+
+    // Hardcoded from Qwen3-ASR model config (config.supportLanguages in HF blob).
+    // Ideally read from Qwen3ASRModel.config.supportLanguages at runtime,
+    // pending mlx-audio-swift exposing this property.
+    static let supportedLanguages: [String] = [
+        "Chinese", "English", "Cantonese", "Japanese", "Korean",
+        "Arabic", "French", "German", "Spanish", "Portuguese",
+        "Russian", "Italian", "Indonesian", "Thai", "Vietnamese",
+        "Turkish", "Hindi", "Malay", "Dutch", "Swedish",
+        "Danish", "Finnish", "Polish", "Czech", "Filipino",
+        "Persian", "Greek", "Romanian", "Hungarian", "Macedonian",
+    ]
     var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
     var autoCheckUpdates: Bool = true    // check GitHub releases on launch
     var modelVariants: [String: String] = [:]  // family name → selected variant (e.g. "Qwen3-ASR-0.6B": "4bit")

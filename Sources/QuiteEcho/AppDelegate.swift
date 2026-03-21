@@ -35,6 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.onSelectHotkeyPreset = { [weak self] preset in self?.applyHotkeyPreset(preset) }
         viewModel.onTogglePlayground = { [weak self] in self?.togglePlaygroundRecording() }
         viewModel.onHotkeyModeChange = { [weak self] mode in self?.setHotkeyMode(mode) }
+        viewModel.onLanguageChange = { [weak self] lang in
+            guard let self else { return }
+            self.config.language = lang
+            self.config.save()
+            self.viewModel.config = self.config
+        }
         viewModel.onCheckUpdate = { [weak self] in
             guard let self else { return }
             self.viewModel.updateCheckStatus = .checking
