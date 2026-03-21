@@ -44,10 +44,35 @@ jobs:
             fi
           fi
           xcrun --find metal
-          # metallib may live in a secondary Xcode toolchain; verify via
-          # the active developer dir instead of xcrun to avoid path mismatch.
           METAL_DIR=$(dirname "$(xcrun --find metal)")
           ls "$METAL_DIR/metallib" || echo "::warning::metallib not adjacent to metal, build may still succeed"
+      - name: Import signing certificate
+        env:
+          DEVELOPER_ID_CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+
+          echo -n "$DEVELOPER_ID_CERT_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$DEVELOPER_ID_CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          # Extract signing identity name
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+            | grep "Developer ID Application" | head -1 \
+            | sed 's/.*"\(.*\)".*/\1/')
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "Signing identity: $IDENTITY"
       - name: Cache SPM build
         uses: actions/cache@v4
         with:
@@ -55,7 +80,19 @@ jobs:
           key: spm-release-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-release-${{ runner.os }}-
       - name: Build DMG
-        run: make dmg
+        run: make dmg SIGN_IDENTITY="$SIGN_IDENTITY"
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit dist/QuiteEcho.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple dist/QuiteEcho.dmg
       - name: Rename DMG with version
         if: ${{ !inputs.build_only }}
         run: mv dist/QuiteEcho.dmg "dist/QuiteEcho-${TAG#v}.dmg"
@@ -87,3 +124,9 @@ jobs:
             ARGS+=(--prerelease)
           fi
           gh release create "${ARGS[@]}"
+      - name: Clean up keychain
+        if: always()
+        run: |
+          if [ -n "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi

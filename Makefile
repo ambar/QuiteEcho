@@ -10,6 +10,9 @@ DMG_FILE    = $(DIST_DIR)/$(APP_NAME).dmg
 MLX_METAL_DIR = .build/checkouts/mlx-swift/Source/Cmlx/mlx-generated/metal
 METALLIB      = .build/mlx.metallib
 
+SIGN_IDENTITY ?= -
+ENTITLEMENTS   = Resources/QuiteEcho.entitlements
+
 define assemble_app
 	@rm -rf "$(1)"
 	@mkdir -p "$(1)/Contents/MacOS"
@@ -18,7 +21,15 @@ define assemble_app
 	@cp "$(METALLIB)" "$(1)/Contents/MacOS/mlx.metallib"
 	@cp Resources/Info.plist "$(1)/Contents/"
 	@cp Resources/AppIcon.icns "$(1)/Contents/Resources/"
-	@codesign --force --deep --sign - "$(1)"
+	@if [ "$(SIGN_IDENTITY)" = "-" ]; then \
+		codesign --force --deep --sign - "$(1)"; \
+	else \
+		codesign --force --deep --sign "$(SIGN_IDENTITY)" \
+			--entitlements "$(ENTITLEMENTS)" \
+			--options runtime \
+			--timestamp \
+			"$(1)"; \
+	fi
 endef
 
 # Compile MLX Metal shaders into mlx.metallib
