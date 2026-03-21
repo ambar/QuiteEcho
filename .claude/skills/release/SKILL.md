@@ -119,13 +119,13 @@ git commit -m "Release v{new_version}"
 
 ## 8. Tag
 
-Create an **annotated** tag with the changelog as the message. Use a heredoc to pass the message:
+Create an **annotated** tag with the changelog as the message. Use `--cleanup=verbatim` to preserve `#` lines (git strips them as comments by default):
 
 ```bash
-git tag -a v{tag_version} -m "$(cat <<'EOF'
+cat <<'EOF' > /tmp/tag-message.txt
 {changelog}
 EOF
-)"
+git tag -a v{tag_version} -F /tmp/tag-message.txt --cleanup=verbatim
 ```
 
 ## 9. Ask about push
