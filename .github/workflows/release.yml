@@ -97,6 +97,21 @@ jobs:
       - name: Rename DMG with version
         if: ${{ !inputs.build_only }}
         run: mv dist/QuiteEcho.dmg "dist/QuiteEcho-${TAG#v}.dmg"
+      - name: Sign DMG for Sparkle
+        if: ${{ !inputs.build_only }}
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          DMG_FILE="dist/QuiteEcho-${TAG#v}.dmg"
+          SPARKLE_BIN=$(find .build -name "sign_update" -type f 2>/dev/null | head -1)
+          if [ -n "$SPARKLE_BIN" ] && [ -n "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            chmod +x "$SPARKLE_BIN"
+            SIGN_OUTPUT=$("$SPARKLE_BIN" "$DMG_FILE" --ed-key-file <(echo "$SPARKLE_ED_PRIVATE_KEY"))
+            echo "SPARKLE_SIGNATURE=$SIGN_OUTPUT" >> "$GITHUB_ENV"
+            echo "Sparkle signature: $SIGN_OUTPUT"
+          else
+            echo "::warning::sign_update not found or SPARKLE_ED_PRIVATE_KEY not set, skipping Sparkle signing"
+          fi
       - name: Build release body
         if: ${{ !inputs.build_only }}
         run: |
@@ -125,6 +140,88 @@ jobs:
             ARGS+=(--prerelease)
           fi
           gh release create "${ARGS[@]}"
+      - name: Update Sparkle appcast
+        if: ${{ !inputs.build_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${TAG#v}"
+          DMG_FILE="dist/QuiteEcho-${VERSION}.dmg"
+          DMG_SIZE=$(stat -f%z "$DMG_FILE")
+          DMG_URL="https://github.com/ambar/QuiteEcho/releases/download/${TAG}/QuiteEcho-${VERSION}.dmg"
+          PUB_DATE=$(date -R)
+
+          # Extract edSignature from SPARKLE_SIGNATURE (format: sparkle:edSignature="..." length="...")
+          ED_SIG=""
+          if [ -n "$SPARKLE_SIGNATURE" ]; then
+            ED_SIG=$(echo "$SPARKLE_SIGNATURE" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          fi
+          if [ -z "$ED_SIG" ]; then
+            echo "::error::No Sparkle signature available, aborting appcast update"
+            exit 1
+          fi
+
+          # Fetch release notes and convert markdown to HTML via GitHub API
+          NOTES_MD=$(gh release view "$TAG" --json body -q .body 2>/dev/null || echo "")
+          NOTES=""
+          if [ -n "$NOTES_MD" ]; then
+            NOTES=$(echo "$NOTES_MD" | gh api --method POST /markdown -f mode=gfm -f text=@- 2>/dev/null || echo "")
+          fi
+
+          # Build new appcast item (beta tags get sparkle:channel)
+          CHANNEL=""
+          if [[ "$TAG" == *-beta* ]]; then
+            CHANNEL="
+              <sparkle:channel>beta</sparkle:channel>"
+          fi
+          ITEM="        <item>
+              <title>Version ${VERSION}</title>
+              <sparkle:version>${VERSION}</sparkle:version>
+              <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>${CHANNEL}
+              <pubDate>${PUB_DATE}</pubDate>
+              <description><![CDATA[${NOTES}]]></description>
+              <enclosure url=\"${DMG_URL}\"
+                         sparkle:edSignature=\"${ED_SIG}\"
+                         length=\"${DMG_SIZE}\"
+                         type=\"application/octet-stream\"/>
+          </item>"
+
+          # Clone gh-pages, update appcast, push
+          git fetch origin gh-pages || true
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            git worktree add /tmp/gh-pages origin/gh-pages
+          else
+            git worktree add --orphan /tmp/gh-pages
+            cd /tmp/gh-pages && git checkout --orphan gh-pages && cd -
+          fi
+
+          APPCAST="/tmp/gh-pages/appcast.xml"
+          if [ ! -f "$APPCAST" ]; then
+            cat > "$APPCAST" << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>QuiteEcho</title>
+            </channel>
+          </rss>
+          XMLEOF
+          fi
+
+          # Insert new item before </channel>
+          printf '%s' "$ITEM" > /tmp/appcast_item.xml
+          python3 -c "
+          appcast = open('$APPCAST').read()
+          item = open('/tmp/appcast_item.xml').read()
+          appcast = appcast.replace('</channel>', item + '\n    </channel>')
+          open('$APPCAST', 'w').write(appcast)
+          "
+
+          cd /tmp/gh-pages
+          git add appcast.xml
+          git commit -m "Update appcast for ${TAG}" || true
+          git push origin gh-pages
+          cd -
+          git worktree remove /tmp/gh-pages
       - name: Clean up keychain
         if: always()
         run: |

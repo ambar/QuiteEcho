@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var config = AppConfig.load()
@@ -7,7 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let overlay = OverlayPanel()
     private let asr = ASRBridge()
     private let hotkey = HotkeyManager()
-    private let updateChecker = UpdateChecker()
+    private let updaterDelegate: SparkleDelegate
+    let updaterController: SPUStandardUpdaterController
     private var statusBar: StatusBarController!
     private var hotkeyRecorderWindow: HotkeyRecorderWindow?
 
@@ -19,6 +21,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var levelTimer: Timer?
 
     override init() {
+        updaterDelegate = SparkleDelegate(config: config)
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: updaterDelegate,
+            userDriverDelegate: nil
+        )
         viewModel = MainViewModel(config: config, stats: stats)
         super.init()
     }
@@ -41,12 +49,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.config.save()
             self.viewModel.config = self.config
         }
-        viewModel.onCheckUpdate = { [weak self] in
-            guard let self else { return }
-            self.viewModel.updateCheckStatus = .checking
-            self.updateChecker.check(manual: true)
+        viewModel.checkForUpdates = { [weak self] in
+            self?.updaterController.checkForUpdates(nil)
         }
-        viewModel.onAutoCheckChange = { [weak self] enabled in self?.setAutoCheckUpdates(enabled) }
+        viewModel.onAutoCheckChange = { [weak self] enabled in
+            guard let self else { return }
+            self.updaterController.updater.automaticallyChecksForUpdates = enabled
+            self.viewModel.automaticallyChecksForUpdates = enabled
+        }
+        viewModel.onBetaUpdatesChange = { [weak self] enabled in
+            guard let self else { return }
+            self.config.betaUpdates = enabled
+            self.config.save()
+            self.viewModel.config = self.config
+            self.updaterDelegate.config = self.config
+        }
 
         asr.onStateChange = { [weak self] state in
             guard let self else { return }
@@ -78,25 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        updateChecker.onUpdateAvailable = { [weak self] release in
-            guard let self else { return }
-            self.viewModel.availableUpdate = release
-            self.viewModel.updateCheckStatus = .idle
-            self.statusBar.rebuildMenu()
-        }
-        updateChecker.onCheckComplete = { [weak self] hasUpdate in
-            guard let self, !hasUpdate else { return }
-            self.viewModel.updateCheckStatus = .upToDate
-            // Reset after 5 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                if self.viewModel.updateCheckStatus == .upToDate {
-                    self.viewModel.updateCheckStatus = .idle
-                }
-            }
-        }
-        if config.autoCheckUpdates {
-            updateChecker.startPeriodicChecks()
-        }
+        // Start Sparkle updater
+        updaterController.startUpdater()
+        viewModel.automaticallyChecksForUpdates = updaterController.updater.automaticallyChecksForUpdates
 
         PasteService.ensureAccessibility()
         bindHotkey()
@@ -109,7 +110,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if recorder.isRecording { _ = recorder.stop() }
         hotkey.unregister()
         asr.stop()
-        updateChecker.stop()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -125,6 +125,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About QuiteEcho", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        updateItem.target = updaterController
+        appMenu.addItem(updateItem)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit QuiteEcho", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
@@ -290,17 +294,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.config = config
     }
 
-    private func setAutoCheckUpdates(_ enabled: Bool) {
-        config.autoCheckUpdates = enabled
-        config.save()
-        viewModel.config = config
-        if enabled {
-            updateChecker.startPeriodicChecks()
-        } else {
-            updateChecker.stop()
-        }
-    }
-
     // MARK: - Hotkey
 
     func applyHotkeyPreset(_ preset: HotkeyPreset) {
@@ -388,6 +381,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Accessors
 
     var currentConfig: AppConfig { config }
+}
+
+// MARK: - Sparkle Delegate
+
+final class SparkleDelegate: NSObject, SPUUpdaterDelegate {
+    var config: AppConfig
+
+    init(config: AppConfig) {
+        self.config = config
+    }
+
+    func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+        config.betaUpdates ? ["beta"] : []
+    }
 }
 
 // MARK: - Hotkey Recorder Window

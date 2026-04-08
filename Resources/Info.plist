@@ -21,5 +21,11 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>QuiteEcho needs microphone access to transcribe your speech.</string>
+    <key>SUFeedURL</key>
+    <string>https://ambar.github.io/QuiteEcho/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUPublicEDKey</key>
+    <string>lUqNEWbkBAdLOF9JqrGdDtz6epPsDRy/WTVKP1ByI9M=</string>
 </dict>
 </plist>

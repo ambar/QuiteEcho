@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 
 /// Manages the NSStatusItem (menu bar icon + dropdown menu).
 final class StatusBarController {
@@ -82,17 +83,14 @@ final class StatusBarController {
         hkItem.target = self
         menu.addItem(hkItem)
 
-        if let update = delegate.viewModel.availableUpdate {
-            menu.addItem(.separator())
-            let updateItem = NSMenuItem(
-                title: "Update Available: v\(update.version)",
-                action: #selector(onOpenUpdate),
-                keyEquivalent: ""
-            )
-            updateItem.target = self
-            updateItem.representedObject = update.htmlURL
-            menu.addItem(updateItem)
-        }
+        menu.addItem(.separator())
+        let updateItem = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        updateItem.target = delegate.updaterController
+        menu.addItem(updateItem)
 
         menu.addItem(.separator())
 
@@ -112,10 +110,5 @@ final class StatusBarController {
         delegate?.selectModel(id)
     }
     @objc private func onChangeHotkey() { delegate?.changeHotkey() }
-    @objc private func onOpenUpdate(_ sender: NSMenuItem) {
-        guard let urlString = sender.representedObject as? String,
-              let url = URL(string: urlString) else { return }
-        NSWorkspace.shared.open(url)
-    }
     @objc private func onQuit() { NSApp.terminate(nil) }
 }

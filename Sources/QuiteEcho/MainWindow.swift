@@ -60,12 +60,11 @@ final class MainViewModel: ObservableObject {
     var onTogglePlayground: (() -> Void)?
     var onHotkeyModeChange: ((String) -> Void)?
     var onLanguageChange: ((String) -> Void)?
-    var onCheckUpdate: (() -> Void)?
+    var checkForUpdates: (() -> Void)?
     var onAutoCheckChange: ((Bool) -> Void)?
-
-    enum UpdateCheckStatus: Equatable { case idle, checking, upToDate }
-    @Published var availableUpdate: UpdateChecker.Release?
-    @Published var updateCheckStatus: UpdateCheckStatus = .idle
+    var onBetaUpdatesChange: ((Bool) -> Void)?
+    @Published var automaticallyChecksForUpdates = true
+    @Published var optionKeyDown = false
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -175,28 +174,10 @@ struct MainWindowView: View {
 
             Spacer()
 
-            if let update = vm.availableUpdate {
-                Button(action: {
-                    if let url = URL(string: update.htmlURL) {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 10))
-                        Text("v\(update.version)")
-                            .font(.system(size: 10, weight: .medium))
-                    }
-                    .foregroundStyle(.orange)
-                    .padding(.horizontal, 12)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Text("v\(vm.currentVersion)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.quaternary)
-                    .padding(.horizontal, 12)
-            }
+            Text("v\(vm.currentVersion)")
+                .font(.system(size: 10))
+                .foregroundStyle(.quaternary)
+                .padding(.horizontal, 12)
 
             Spacer().frame(height: 12)
         }
@@ -950,61 +931,19 @@ private struct SettingsView: View {
                             .textCase(.uppercase)
 
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Current version: v\(vm.currentVersion)")
-                                    .font(.system(size: 13))
-                                if let update = vm.availableUpdate {
-                                    Text("v\(update.version) available")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.orange)
-                                } else if vm.updateCheckStatus == .checking {
-                                    Text("Checking...")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.secondary)
-                                } else if vm.updateCheckStatus == .upToDate {
-                                    Text("Already the latest version")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.green)
-                                } else {
-                                    Text("Up to date")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
+                            Text("Current version: v\(vm.currentVersion)")
+                                .font(.system(size: 13))
                             Spacer()
-                            if let update = vm.availableUpdate {
-                                Button(action: {
-                                    if let url = URL(string: update.htmlURL) {
-                                        NSWorkspace.shared.open(url)
-                                    }
-                                }) {
-                                    Text("Download")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 5)
-                                        .background(Color.orange)
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                Button(action: { vm.onCheckUpdate?() }) {
-                                    if vm.updateCheckStatus == .checking {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                    } else {
-                                        Text("Check Now")
-                                            .font(.system(size: 11, weight: .medium))
-                                            .foregroundStyle(Color.accentColor)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 5)
-                                            .background(Color.accentColor.opacity(0.1))
-                                            .clipShape(Capsule())
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(vm.updateCheckStatus == .checking)
+                            Button(action: { vm.checkForUpdates?() }) {
+                                Text("Check for Updates")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(Color.accentColor)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 5)
+                                    .background(Color.accentColor.opacity(0.1))
+                                    .clipShape(Capsule())
                             }
+                            .buttonStyle(.plain)
                         }
 
                         Divider()
@@ -1027,8 +966,22 @@ private struct SettingsView: View {
 
                             Spacer()
 
+                            if vm.optionKeyDown {
+                                Toggle(isOn: Binding(
+                                    get: { vm.config.betaUpdates },
+                                    set: { vm.onBetaUpdatesChange?($0) }
+                                )) {
+                                    Text("Opt-in beta")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .toggleStyle(.switch)
+                                .controlSize(.mini)
+                                .transition(.opacity)
+                            }
+
                             Toggle(isOn: Binding(
-                                get: { vm.config.autoCheckUpdates },
+                                get: { vm.automaticallyChecksForUpdates },
                                 set: { vm.onAutoCheckChange?($0) }
                             )) {
                                 Text("Auto check")
@@ -1039,6 +992,7 @@ private struct SettingsView: View {
                             .controlSize(.mini)
                         }
                     }
+                    .animation(nil, value: vm.optionKeyDown)
                 }
 
                 // Privacy
@@ -1061,6 +1015,9 @@ private struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
         .onAppear { vm.refreshPermissions() }
+        .onModifierKeys(.option) { pressed in
+            vm.optionKeyDown = pressed
+        }
     }
 
     private func settingsPermRow(icon: String, name: String, granted: Bool, action: @escaping () -> Void) -> some View {
@@ -1188,5 +1145,35 @@ private struct SettingsView: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
             )
+    }
+}
+
+// MARK: - Modifier Key Monitor
+
+private struct ModifierKeyModifier: ViewModifier {
+    let flags: NSEvent.ModifierFlags
+    let onChange: (Bool) -> Void
+    @State private var monitor: Any?
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                if let existing = monitor { NSEvent.removeMonitor(existing) }
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+                    onChange(event.modifierFlags.contains(flags))
+                    return event
+                }
+            }
+            .onDisappear {
+                if let monitor { NSEvent.removeMonitor(monitor) }
+                monitor = nil
+                onChange(false)
+            }
+    }
+}
+
+extension View {
+    func onModifierKeys(_ flags: NSEvent.ModifierFlags, onChange: @escaping (Bool) -> Void) -> some View {
+        modifier(ModifierKeyModifier(flags: flags, onChange: onChange))
     }
 }
