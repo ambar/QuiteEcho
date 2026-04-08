@@ -219,7 +219,7 @@ jobs:
           cd /tmp/gh-pages
           git add appcast.xml
           git commit -m "Update appcast for ${TAG}" || true
-          git push origin gh-pages
+          git push origin HEAD:gh-pages
           cd -
           git worktree remove /tmp/gh-pages
       - name: Clean up keychain
