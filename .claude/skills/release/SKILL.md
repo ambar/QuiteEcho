@@ -61,10 +61,10 @@ Classify each commit by its Conventional Commits prefix. Only include user-facin
 Skip non-user-facing commits (`chore:`, `refactor:`, `docs:`, `ci:`, `style:`, etc.). Format with category headers, omit empty categories:
 
 ```
-### Features
+## Features
 - Add beta pre-release support and annotated tags
 
-### Bug Fixes
+## Bug Fixes
 - Fix AudioRecorder crash: use per-session AVAudioEngine
 ```
 
