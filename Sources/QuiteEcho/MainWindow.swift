@@ -134,7 +134,10 @@ struct MainWindowView: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-            Divider().ignoresSafeArea()
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor))
+                .frame(width: 0.5)
+                .ignoresSafeArea()
 
             Group {
                 switch vm.selectedTab {
@@ -189,7 +192,7 @@ struct MainWindowView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                Text("v0.2.4")
+                Text("v\(vm.currentVersion)")
                     .font(.system(size: 10))
                     .foregroundStyle(.quaternary)
                     .padding(.horizontal, 12)
@@ -296,10 +299,10 @@ private struct HomeView: View {
         }
         .padding(18)
         .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
         )
     }
 
@@ -335,7 +338,7 @@ private struct HomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                        .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
                 )
 
                 Button(action: { vm.refreshPermissions() }) {
@@ -459,7 +462,7 @@ private struct HomeView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
         )
     }
 
@@ -474,7 +477,7 @@ private struct HomeView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Press \(vm.config.hotkeyDisplayString) to start dictating")
                     .font(.system(size: 13, weight: .medium))
-                Text("Mode: \(vm.config.hotkeyMode == "hold" ? "Hold to record" : "Toggle on/off")")
+                Text(vm.config.hotkeyMode == "hold" ? "Hold to record" : "Toggle on/off")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -497,7 +500,7 @@ private struct HomeView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
         )
     }
 
@@ -555,10 +558,6 @@ private struct ModelsView: View {
                     Text("Models")
                         .font(.system(size: 22, weight: .bold))
 
-                    Text("Select the ASR model for transcription.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-
                     VStack(spacing: 10) {
                         ForEach(Array(AppConfig.modelFamilies.enumerated()), id: \.offset) { _, family in
                             ModelCardView(vm: vm, family: family)
@@ -568,7 +567,9 @@ private struct ModelsView: View {
                     // Mirror source
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Download Source")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
 
                         Picker("", selection: Binding(
                             get: { vm.config.useHFMirror },
@@ -580,6 +581,14 @@ private struct ModelsView: View {
                         .pickerStyle(.radioGroup)
                         .labelsHidden()
                     }
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                    )
                 }
                 .padding(.horizontal, 32)
                 .padding(.top, 12)
@@ -855,7 +864,7 @@ private struct SettingsView: View {
         VStack(spacing: 0) {
             Spacer().frame(height: 38)
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
                     Text("Settings")
                         .font(.system(size: 22, weight: .bold))
 
@@ -876,11 +885,8 @@ private struct SettingsView: View {
                             modeButton("Hold", value: "hold",
                                        desc: "Hold to record, release to stop")
                         }
+                        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                        )
                     }
                 }
 
@@ -1036,25 +1042,16 @@ private struct SettingsView: View {
                 }
 
                 // Privacy
-                HStack(spacing: 10) {
+                HStack(spacing: 6) {
                     Image(systemName: "lock.fill")
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your data stays private.")
-                            .font(.system(size: 13, weight: .medium))
-                        Text("All processing happens on your device.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                    Text("All processing happens on your device.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                )
+                .frame(maxWidth: .infinity)
+                .padding(.top, 4)
             }
                 .padding(.horizontal, 32)
                 .padding(.top, 12)
@@ -1153,12 +1150,8 @@ private struct SettingsView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Color(nsColor: .controlBackgroundColor))
+            .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-            )
         }
         .menuStyle(.borderlessButton)
     }
@@ -1193,7 +1186,7 @@ private struct SettingsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
             )
     }
 }

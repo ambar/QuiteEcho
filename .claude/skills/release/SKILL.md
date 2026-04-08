@@ -106,14 +106,14 @@ Run:
 bash scripts/bump-version.sh {new_version}
 ```
 
-This updates `Resources/Info.plist`, `Sources/QuiteEcho/MainWindow.swift`, and `pyproject.toml`.
+This updates `Resources/Info.plist` and `pyproject.toml`.
 
 ## 7. Commit (normal release only)
 
 Skip this step for beta releases.
 
 ```bash
-git add Resources/Info.plist Sources/QuiteEcho/MainWindow.swift pyproject.toml
+git add Resources/Info.plist pyproject.toml
 git commit -m "Release v{new_version}"
 ```
 

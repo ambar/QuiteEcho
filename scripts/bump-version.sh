@@ -16,10 +16,5 @@ sed -E -i '' \
   '/<key>CFBundle(Short)?Version(String)?<\/key>/{n;s|<string>[^<]*</string>|<string>'"$VERSION"'</string>|;}' \
   "$ROOT/Resources/Info.plist"
 
-# 2. MainWindow.swift — Text("v...")
-sed -E -i '' \
-  's/Text\("v[0-9]+\.[0-9]+\.[0-9]+"\)/Text("v'"$VERSION"'")/' \
-  "$ROOT/Sources/QuiteEcho/MainWindow.swift"
-
 echo "Version bumped to $VERSION"
-grep -n "$VERSION" "$ROOT/Resources/Info.plist" "$ROOT/Sources/QuiteEcho/MainWindow.swift"
+grep -n "$VERSION" "$ROOT/Resources/Info.plist"
