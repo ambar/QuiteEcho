@@ -9,13 +9,18 @@ enum PasteService {
 
         pb.clearContents()
         pb.setString(text, forType: .string)
+        let expectedChangeCount = pb.changeCount
 
+        // 50 ms: give the front app time to receive the ⌘V CGEvent
+        // 150 ms: give the front app time to actually read the pasteboard after ⌘V
+        // Total 200 ms window; increase if paste fails on slow/Electron apps.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             simulatePaste()
 
             if let savedItems {
-                // Restore previous clipboard contents after ⌘V has read the pasteboard
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    // Only restore if nobody else has touched the clipboard
+                    guard pb.changeCount == expectedChangeCount else { return }
                     restoreClipboard(pb, items: savedItems)
                 }
             }
@@ -24,17 +29,23 @@ enum PasteService {
 
     // MARK: - Clipboard save / restore
 
-    private static func snapshotClipboard(_ pb: NSPasteboard) -> [NSPasteboardItem] {
+    /// Returns `nil` if the clipboard cannot be fully serialized (e.g. lazy data providers from other apps).
+    private static func snapshotClipboard(_ pb: NSPasteboard) -> [NSPasteboardItem]? {
         guard let items = pb.pasteboardItems else { return [] }
-        return items.compactMap { original in
-            let copy = NSPasteboardItem()
+        var copied: [NSPasteboardItem] = []
+        for original in items {
+            let item = NSPasteboardItem()
+            var hasData = false
             for type in original.types {
                 if let data = original.data(forType: type) {
-                    copy.setData(data, forType: type)
+                    item.setData(data, forType: type)
+                    hasData = true
                 }
             }
-            return copy
+            if !hasData { return nil }
+            copied.append(item)
         }
+        return copied
     }
 
     private static func restoreClipboard(_ pb: NSPasteboard, items: [NSPasteboardItem]) {
