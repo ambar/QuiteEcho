@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>QuiteEcho</title>
+          <item>
+    <title>Version 0.2.4-beta.1</title>
+    <sparkle:version>0.2.4-beta.1</sparkle:version>
+    <sparkle:shortVersionString>0.2.4-beta.1</sparkle:shortVersionString>
+    <sparkle:channel>beta</sparkle:channel>
+    <pubDate>Wed, 08 Apr 2026 15:50:30 +0000</pubDate>
+    <description><![CDATA[<p>@-</p>]]></description>
+    <enclosure url="https://github.com/ambar/QuiteEcho/releases/download/v0.2.4-beta.1/QuiteEcho-0.2.4-beta.1.dmg"
+               sparkle:edSignature="h3GUGbIU5eLKooNTgT8jWZVVvUAsM0/01hk+EuoY8jmSzAhuCitF7iN08f784P4xaGo530dRxoVJ6VIdb6iZDQ=="
+               length="15642694"
+               type="application/octet-stream"/>
+</item>
+    </channel>
+</rss>
