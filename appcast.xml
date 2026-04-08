@@ -14,5 +14,22 @@
                length="15642694"
                type="application/octet-stream"/>
 </item>
+            <item>
+    <title>Version 0.2.5-beta.1</title>
+    <sparkle:version>0.2.5-beta.1</sparkle:version>
+    <sparkle:shortVersionString>0.2.5-beta.1</sparkle:shortVersionString>
+    <sparkle:channel>beta</sparkle:channel>
+    <pubDate>Wed, 08 Apr 2026 17:25:23 +0000</pubDate>
+    <description><![CDATA[<ul>
+<li>Preserve clipboard after pasting transcribed text</li>
+<li>Add in-app updates via Sparkle framework</li>
+<li>Polish MainWindow UI and use dynamic version string</li>
+</ul>
+<p><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/ambar/QuiteEcho/compare/v0.2.4...v0.2.5-beta.1">ambar/QuiteEcho@<tt>v0.2.4...v0.2.5-beta.1</tt></a></p>]]></description>
+    <enclosure url="https://github.com/ambar/QuiteEcho/releases/download/v0.2.5-beta.1/QuiteEcho-0.2.5-beta.1.dmg"
+               sparkle:edSignature="HthFH4zthpsUBhCAU/SAEIkP/+OggwLVFRUayM9MJN2C5x1XUoPLP4h/pQEJ4zvzOc92yHeQy38HXV8ee/1rAg=="
+               length="15660589"
+               type="application/octet-stream"/>
+</item>
     </channel>
 </rss>
