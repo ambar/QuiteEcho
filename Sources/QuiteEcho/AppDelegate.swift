@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordingStartDate: Date?
     private var isPlaygroundRecording = false
     private var levelTimer: Timer?
+    private var cursorRectAtRecordingStart: NSRect?
 
     override init() {
         updaterDelegate = SparkleDelegate(config: config)
@@ -196,6 +197,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         do {
+            // Capture cursor position before recording starts (while user is still in their text field)
+            cursorRectAtRecordingStart = CursorLocator.currentCursorRect()
+            overlay.positionNear(cursor: cursorRectAtRecordingStart)
+
             try recorder.start()
             recordingStartDate = Date()
             overlay.showRecording()
