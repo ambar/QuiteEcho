@@ -64,6 +64,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.viewModel.config = self.config
             self.updaterDelegate.config = self.config
         }
+        viewModel.onCopyToClipboardChange = { [weak self] enabled in
+            guard let self else { return }
+            self.config.copyToClipboard = enabled
+            self.config.save()
+            self.viewModel.config = self.config
+        }
 
         asr.onStateChange = { [weak self] state in
             guard let self else { return }
@@ -239,7 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                         self.viewModel.playgroundText += trimmed
                     } else {
-                        PasteService.paste(trimmed)
+                        PasteService.paste(trimmed, copyToClipboard: self.config.copyToClipboard)
                     }
                 }
             case .failure(let error):

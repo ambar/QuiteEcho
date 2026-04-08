@@ -63,6 +63,7 @@ final class MainViewModel: ObservableObject {
     var checkForUpdates: (() -> Void)?
     var onAutoCheckChange: ((Bool) -> Void)?
     var onBetaUpdatesChange: ((Bool) -> Void)?
+    var onCopyToClipboardChange: ((Bool) -> Void)?
     @Published var automaticallyChecksForUpdates = true
     @Published var optionKeyDown = false
 
@@ -895,6 +896,34 @@ private struct SettingsView: View {
                             }
                             .labelsHidden()
                             .fixedSize()
+                        }
+                    }
+                }
+
+                // Output
+                card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Output")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Copy to clipboard")
+                                    .font(.system(size: 13))
+                                Text("Keep transcribed text on clipboard for re-pasting")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { vm.config.copyToClipboard },
+                                set: { vm.onCopyToClipboardChange?($0) }
+                            ))
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .labelsHidden()
                         }
                     }
                 }

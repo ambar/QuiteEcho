@@ -20,6 +20,7 @@ struct AppConfig: Codable {
         "Danish", "Finnish", "Polish", "Czech", "Filipino",
         "Persian", "Greek", "Romanian", "Hungarian", "Macedonian",
     ]
+    var copyToClipboard: Bool = false    // keep transcribed text on clipboard after pasting
     var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
     var autoCheckUpdates: Bool = true    // check GitHub releases on launch
     var betaUpdates: Bool = false        // opt-in to prerelease channel
