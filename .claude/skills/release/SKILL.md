@@ -53,13 +53,12 @@ Generate a list of commits since that tag:
 git log {prev_tag}..HEAD --pretty=format:"%s" --no-merges
 ```
 
-Classify each commit by its semantic meaning into these categories (judge by the full message, not just prefix):
+Classify each commit by its Conventional Commits prefix. Only include user-facing changes:
 
-- **Features** — new functionality, new support, additions (e.g. "Add ...", "Support ...", "Implement ...")
-- **Bug Fixes** — fixes, corrections (e.g. "Fix ...", "Resolve ...", "Correct ...")
-- **Other** — refactors, CI changes, docs, chores, style tweaks, etc.
+- **Features** — `feat:` commits
+- **Bug Fixes** — `fix:` commits
 
-Format the changelog with category headers. Omit empty categories:
+Skip non-user-facing commits (`chore:`, `refactor:`, `docs:`, `ci:`, `style:`, etc.). Format with category headers, omit empty categories:
 
 ```
 ### Features
@@ -67,9 +66,6 @@ Format the changelog with category headers. Omit empty categories:
 
 ### Bug Fixes
 - Fix AudioRecorder crash: use per-session AVAudioEngine
-
-### Other
-- Update release.yml
 ```
 
 Show the formatted changelog to the user.
@@ -114,7 +110,7 @@ Skip this step for beta releases.
 
 ```bash
 git add Resources/Info.plist pyproject.toml
-git commit -m "Release v{new_version}"
+git commit -m "chore: release v{new_version}"
 ```
 
 ## 8. Tag

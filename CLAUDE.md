@@ -60,3 +60,4 @@ Recorder window **unregisters** hotkey while open to prevent accidental triggers
 - Semantic colors only — no hardcoded colors, must support light/dark mode
 - Word counting: `NSString.enumerateSubstrings(options: .byWords)` (ICU, handles CJK)
 - Supported models: `mlx-community/Qwen3-ASR-0.6B-8bit` (default), `mlx-community/Qwen3-ASR-1.7B-8bit`, `mlx-community/Qwen3-ASR-1.7B-4bit`
+- Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/) — e.g. `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
