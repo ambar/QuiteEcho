@@ -26,14 +26,24 @@ enum CursorLocator {
         }
         let element = focusedElement as! AXUIElement
 
-        // Get the selected text range (cursor position)
+        // Try text cursor bounds first, fall back to focused element frame
+        if let rect = textCursorBounds(of: element) {
+            return cgRectToScreen(rect)
+        }
+        if let rect = elementFrame(of: element) {
+            return cgRectToScreen(rect)
+        }
+        return nil
+    }
+
+    /// Bounds of the text cursor (caret) via parameterized AX attribute.
+    private static func textCursorBounds(of element: AXUIElement) -> CGRect? {
         var rangeValue: AnyObject?
         guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
               let range = rangeValue else {
             return nil
         }
 
-        // Get the bounds for the selected range (cursor rect)
         var boundsValue: AnyObject?
         guard AXUIElementCopyParameterizedAttributeValue(
             element,
@@ -45,14 +55,36 @@ enum CursorLocator {
         }
 
         var rect = CGRect.zero
-        guard AXValueGetValue(bounds as! AXValue, .cgRect, &rect) else {
+        guard AXValueGetValue(bounds as! AXValue, .cgRect, &rect),
+              rect.width > 0 || rect.height > 0 else {
+            return nil
+        }
+        return rect
+    }
+
+    /// Frame of the focused UI element (fallback when text cursor bounds unavailable).
+    private static func elementFrame(of element: AXUIElement) -> CGRect? {
+        var posValue: AnyObject?
+        var sizeValue: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posValue) == .success,
+              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success else {
             return nil
         }
 
-        // Accessibility API uses top-left origin (CG coordinates).
-        // Convert to NSScreen bottom-left origin coordinates.
-        let mainHeight = NSScreen.main?.frame.height ?? 0
-        let flippedY = mainHeight - rect.origin.y - rect.size.height
+        var pos = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(posValue as! AXValue, .cgPoint, &pos),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size),
+              size.width > 0, size.height > 0 else {
+            return nil
+        }
+        return CGRect(origin: pos, size: size)
+    }
+
+    /// Convert CG coordinates (origin at top-left of primary screen) to AppKit screen coordinates.
+    private static func cgRectToScreen(_ rect: CGRect) -> NSRect {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let flippedY = primaryHeight - rect.origin.y - rect.size.height
         return NSRect(x: rect.origin.x, y: flippedY, width: rect.size.width, height: rect.size.height)
     }
 }
