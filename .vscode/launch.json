@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:QuiteEcho}",
+            "name": "Debug QuiteEcho",
+            "target": "QuiteEcho",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug QuiteEcho"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:QuiteEcho}",
+            "name": "Release QuiteEcho",
+            "target": "QuiteEcho",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release QuiteEcho"
+        }
+    ]
+}
