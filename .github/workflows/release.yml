@@ -88,11 +88,25 @@ jobs:
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcrun notarytool submit dist/QuiteEcho.dmg \
+          SUBMIT_OUT=$(xcrun notarytool submit dist/QuiteEcho.dmg \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait 2>&1) || true
+          echo "$SUBMIT_OUT"
+          SUB_ID=$(echo "$SUBMIT_OUT" | grep "id:" | head -1 | awk '{print $2}')
+          STATUS=$(echo "$SUBMIT_OUT" | grep "status:" | tail -1 | awk '{print $2}')
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::Notarization failed with status: $STATUS"
+            if [ -n "$SUB_ID" ]; then
+              echo "--- Notarization Log ---"
+              xcrun notarytool log "$SUB_ID" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_ID_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" 2>&1 || true
+            fi
+            exit 1
+          fi
           xcrun stapler staple dist/QuiteEcho.dmg
       - name: Rename DMG with version
         if: ${{ !inputs.build_only }}

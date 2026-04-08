@@ -13,7 +13,7 @@ METALLIB      = .build/mlx.metallib
 SIGN_IDENTITY ?= -
 ENTITLEMENTS   = Resources/QuiteEcho.entitlements
 
-SPARKLE_FW = $(shell find .build -maxdepth 5 -name "Sparkle.framework" -type d 2>/dev/null | head -1)
+SPARKLE_FW = $(shell find -L .build -maxdepth 8 -name "Sparkle.framework" -type d 2>/dev/null | head -1)
 
 define assemble_app
 	@rm -rf "$(1)"
@@ -32,7 +32,8 @@ define assemble_app
 			fi; \
 		done; \
 	else \
-		echo "Warning: Sparkle.framework not found in .build/artifacts"; \
+		echo "Error: Sparkle.framework not found in .build — the app will crash at launch without it" >&2; \
+		exit 1; \
 	fi
 	@install_name_tool -add_rpath @loader_path/../Frameworks "$(1)/Contents/MacOS/$(APP_NAME)" 2>/dev/null || true
 	@if [ "$(SIGN_IDENTITY)" = "-" ]; then \
@@ -86,7 +87,7 @@ dmg:
 	$(call assemble_app,$(DIST_DIR)/$(APP_NAME).app)
 	@rm -rf "$(DIST_DIR)/dmg" "$(DMG_FILE)"
 	@mkdir -p "$(DIST_DIR)/dmg"
-	@cp -r "$(DIST_DIR)/$(APP_NAME).app" "$(DIST_DIR)/dmg/"
+	@ditto "$(DIST_DIR)/$(APP_NAME).app" "$(DIST_DIR)/dmg/$(APP_NAME).app"
 	@ln -s /Applications "$(DIST_DIR)/dmg/Applications"
 	@hdiutil create -volname "$(APP_NAME)" -srcfolder "$(DIST_DIR)/dmg" -ov -format UDZO "$(DMG_FILE)"
 	@rm -rf "$(DIST_DIR)/dmg" "$(DIST_DIR)/$(APP_NAME).app"
