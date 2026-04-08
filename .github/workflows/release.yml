@@ -165,7 +165,7 @@ jobs:
           NOTES_MD=$(gh release view "$TAG" --json body -q .body 2>/dev/null || echo "")
           NOTES=""
           if [ -n "$NOTES_MD" ]; then
-            NOTES=$(echo "$NOTES_MD" | gh api --method POST /markdown -f mode=gfm -f text=@- 2>/dev/null || echo "")
+            NOTES=$(jq -n --arg text "$NOTES_MD" '{"text":$text,"mode":"gfm"}' | gh api --method POST /markdown --input - 2>/dev/null || echo "")
           fi
 
           # Build new appcast item (beta tags get sparkle:channel)
