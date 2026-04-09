@@ -8,7 +8,7 @@
     <key>CFBundleIdentifier</key>
     <string>com.quiteecho.app</string>
     <key>CFBundleVersion</key>
-    <string>10</string>
+    <string>11</string>
     <key>CFBundleShortVersionString</key>
     <string>0.2.5-beta.1</string>
     <key>CFBundlePackageType</key>
