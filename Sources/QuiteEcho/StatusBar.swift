@@ -86,10 +86,10 @@ final class StatusBarController {
         menu.addItem(.separator())
         let updateItem = NSMenuItem(
             title: "Check for Updates…",
-            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+            action: #selector(AppDelegate.checkForUpdatesFromMenu),
             keyEquivalent: ""
         )
-        updateItem.target = delegate.updaterController
+        updateItem.target = delegate
         menu.addItem(updateItem)
 
         menu.addItem(.separator())

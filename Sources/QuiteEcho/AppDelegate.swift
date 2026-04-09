@@ -9,7 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let asr = ASRBridge()
     private let hotkey = HotkeyManager()
     private let updaterDelegate: SparkleDelegate
-    let updaterController: SPUStandardUpdaterController
+    let updateDriver: PopoverUpdateDriver
+    let updater: SPUUpdater
     private var statusBar: StatusBarController!
     private var hotkeyRecorderWindow: HotkeyRecorderWindow?
 
@@ -22,10 +23,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         updaterDelegate = SparkleDelegate(config: config)
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: false,
-            updaterDelegate: updaterDelegate,
-            userDriverDelegate: nil
+        updateDriver = PopoverUpdateDriver()
+        updater = SPUUpdater(
+            hostBundle: .main,
+            applicationBundle: .main,
+            userDriver: updateDriver,
+            delegate: updaterDelegate
         )
         viewModel = MainViewModel(config: config, stats: stats)
         super.init()
@@ -50,11 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.viewModel.config = self.config
         }
         viewModel.checkForUpdates = { [weak self] in
-            self?.updaterController.checkForUpdates(nil)
+            self?.updater.checkForUpdates()
         }
         viewModel.onAutoCheckChange = { [weak self] enabled in
             guard let self else { return }
-            self.updaterController.updater.automaticallyChecksForUpdates = enabled
+            self.updater.automaticallyChecksForUpdates = enabled
             self.viewModel.automaticallyChecksForUpdates = enabled
         }
         viewModel.onBetaUpdatesChange = { [weak self] enabled in
@@ -64,6 +67,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.viewModel.config = self.config
             self.updaterDelegate.config = self.config
         }
+        updateDriver.onStateChange = { [weak self] state in
+            self?.viewModel.updateState = state
+            // Auto-show popover for active states
+            switch state {
+            case .available, .checking:
+                self?.viewModel.showUpdatePopover = true
+            default:
+                break
+            }
+        }
+        viewModel.onUpdateInstall = { [weak self] in self?.updateDriver.userDidChooseInstall() }
+        viewModel.onUpdateDismiss = { [weak self] in self?.updateDriver.userDidChooseDismiss() }
+        viewModel.onUpdateSkip = { [weak self] in self?.updateDriver.userDidChooseSkip() }
+        viewModel.onUpdateInstallAndRelaunch = { [weak self] in self?.updateDriver.userDidChooseInstallAndRelaunch() }
         viewModel.onCopyToClipboardChange = { [weak self] enabled in
             guard let self else { return }
             self.config.copyToClipboard = enabled
@@ -102,8 +119,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Start Sparkle updater
-        updaterController.startUpdater()
-        viewModel.automaticallyChecksForUpdates = updaterController.updater.automaticallyChecksForUpdates
+        try? updater.start()
+        if updater.automaticallyChecksForUpdates {
+            updater.checkForUpdatesInBackground()
+        }
+        viewModel.automaticallyChecksForUpdates = updater.automaticallyChecksForUpdates
 
         PasteService.ensureAccessibility()
         bindHotkey()
@@ -123,6 +143,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    @objc func checkForUpdatesFromMenu() {
+        updater.checkForUpdates()
+    }
+
     // MARK: - Menu
 
     private func setupMainMenu() {
@@ -132,8 +156,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About QuiteEcho", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
-        updateItem.target = updaterController
+        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: "")
+        updateItem.target = self
         appMenu.addItem(updateItem)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit QuiteEcho", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
