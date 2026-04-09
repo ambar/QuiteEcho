@@ -40,5 +40,25 @@
                length="16403178"
                type="application/octet-stream"/>
 </item>
+            <item>
+    <title>Version 0.2.5</title>
+    <sparkle:version>13</sparkle:version>
+    <sparkle:shortVersionString>0.2.5</sparkle:shortVersionString>
+    <pubDate>Thu, 09 Apr 2026 12:43:17 +0000</pubDate>
+    <description><![CDATA[<h2>Features</h2>
+<ul>
+<li>In-app updates via Sparkle framework with custom inline popover UI</li>
+<li>Preserve clipboard after pasting transcribed text</li>
+</ul>
+<h2>Bug Fixes</h2>
+<ul>
+<li>Fix clipboard restore against race conditions and lazy data providers</li>
+</ul>
+<p><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/ambar/QuiteEcho/compare/v0.2.4...v0.2.5">ambar/QuiteEcho@<tt>v0.2.4...v0.2.5</tt></a></p>]]></description>
+    <enclosure url="https://github.com/ambar/QuiteEcho/releases/download/v0.2.5/QuiteEcho-0.2.5.dmg"
+               sparkle:edSignature="JIp5UOOKuUw5SWp49mev+eo1nIDVqgx0MRRYg+QDePgLRgJlsgG9jS4rKPuQLAemlljl6SKmKZJgDPefPNLzCg=="
+               length="16410003"
+               type="application/octet-stream"/>
+</item>
     </channel>
 </rss>
