@@ -2,5 +2,27 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>QuiteEcho</title>
+            <item>
+    <title>Version 0.2.5-beta.1</title>
+    <sparkle:version>11</sparkle:version>
+    <sparkle:shortVersionString>0.2.5-beta.1</sparkle:shortVersionString>
+    <sparkle:channel>beta</sparkle:channel>
+    <pubDate>Thu, 09 Apr 2026 04:19:42 +0000</pubDate>
+    <description><![CDATA[<h2>Features</h2>
+<ul>
+<li>Add in-app updates via Sparkle framework</li>
+<li>Preserve clipboard after pasting transcribed text</li>
+<li>Polish MainWindow UI and use dynamic version string</li>
+</ul>
+<h2>Bug Fixes</h2>
+<ul>
+<li>Fix clipboard restore: guard against race conditions and lazy data providers</li>
+</ul>
+<p><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/ambar/QuiteEcho/compare/v0.2.4...v0.2.5-beta.1">ambar/QuiteEcho@<tt>v0.2.4...v0.2.5-beta.1</tt></a></p>]]></description>
+    <enclosure url="https://github.com/ambar/QuiteEcho/releases/download/v0.2.5-beta.1/QuiteEcho-0.2.5-beta.1.dmg"
+               sparkle:edSignature="fPbYaPTOhsMeIM5Ssf4bI95eidYtUiD4oX2LzVFzkECOSXTUEhhL/Ajsjrz3gfm9KdsuQoWcQatXiezSXdGfDw=="
+               length="16283605"
+               type="application/octet-stream"/>
+</item>
     </channel>
 </rss>
