@@ -177,6 +177,7 @@ struct MainWindowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
             }
 
             Spacer()
@@ -201,7 +202,6 @@ struct MainWindowView: View {
                     .foregroundStyle(.quaternary)
             case .checking:
                 updateChip(color: .secondary) {
-                    ProgressView().controlSize(.mini)
                     Text("Checking…")
                 }
             case .available(let version, _):
