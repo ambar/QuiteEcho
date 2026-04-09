@@ -213,6 +213,7 @@ struct MainWindowView: View {
                 updateChip(color: .orange) {
                     ProgressView().controlSize(.mini)
                     Text("\(Int(progress * 100))%")
+                        .monospacedDigit()
                 }
             case .extracting:
                 updateChip(color: .orange) {

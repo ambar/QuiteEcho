@@ -69,10 +69,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         updateDriver.onStateChange = { [weak self] state in
             self?.viewModel.updateState = state
-            // Auto-show popover for active states
+            // Auto-show popover only for states that need user attention or
+            // explicit feedback. .checking stays silent — the chip spinner is
+            // enough, and showing a popover spinner alongside it is redundant.
             switch state {
-            case .available, .checking:
+            case .available, .notFound, .error:
                 self?.viewModel.showUpdatePopover = true
+            case .idle:
+                self?.viewModel.showUpdatePopover = false
             default:
                 break
             }

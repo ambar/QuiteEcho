@@ -48,6 +48,7 @@ struct UpdatePopoverView: View {
                 HStack {
                     Text("\(Int(progress * 100))%")
                         .font(.system(size: 11))
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
