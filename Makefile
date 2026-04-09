@@ -13,8 +13,6 @@ METALLIB      = .build/mlx.metallib
 SIGN_IDENTITY ?= -
 ENTITLEMENTS   = Resources/QuiteEcho.entitlements
 
-SPARKLE_FW = $(shell find -L .build -maxdepth 8 -name "Sparkle.framework" -type d 2>/dev/null | head -1)
-
 define assemble_app
 	@rm -rf "$(1)"
 	@mkdir -p "$(1)/Contents/MacOS"
@@ -24,8 +22,10 @@ define assemble_app
 	@cp "$(METALLIB)" "$(1)/Contents/MacOS/mlx.metallib"
 	@cp Resources/Info.plist "$(1)/Contents/"
 	@cp Resources/AppIcon.icns "$(1)/Contents/Resources/"
-	@if [ -n "$(SPARKLE_FW)" ]; then \
-		ditto "$(SPARKLE_FW)" "$(1)/Contents/Frameworks/Sparkle.framework"; \
+	@SPARKLE_FW=$$(find -L .build -maxdepth 10 -name "Sparkle.framework" -type d 2>/dev/null | head -1); \
+	if [ -n "$$SPARKLE_FW" ]; then \
+		echo "Embedding Sparkle.framework from $$SPARKLE_FW"; \
+		ditto "$$SPARKLE_FW" "$(1)/Contents/Frameworks/Sparkle.framework"; \
 		find "$(1)/Contents/Frameworks/Sparkle.framework" -type f -perm +111 | while read f; do \
 			if lipo -info "$$f" 2>/dev/null | grep -q "x86_64"; then \
 				lipo -thin arm64 "$$f" -output "$$f.arm64" 2>/dev/null && mv "$$f.arm64" "$$f" || true; \
@@ -33,6 +33,8 @@ define assemble_app
 		done; \
 	else \
 		echo "Error: Sparkle.framework not found in .build — the app will crash at launch without it" >&2; \
+		echo "--- .build candidates ---" >&2; \
+		find .build -maxdepth 10 -name "Sparkle*" 2>/dev/null | head -30 >&2; \
 		exit 1; \
 	fi
 	@install_name_tool -add_rpath @loader_path/../Frameworks "$(1)/Contents/MacOS/$(APP_NAME)" 2>/dev/null || true
