@@ -126,6 +126,24 @@ jobs:
           else
             echo "::warning::sign_update not found or SPARKLE_ED_PRIVATE_KEY not set, skipping Sparkle signing"
           fi
+      - name: Validate release metadata
+        if: ${{ !inputs.build_only }}
+        run: |
+          VERSION="${TAG#v}"
+          PLIST="Resources/Info.plist"
+          PLIST_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")
+          PLIST_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")
+
+          if [ "$PLIST_VERSION" != "$VERSION" ]; then
+            echo "::error::Tag version (${VERSION}) does not match Info.plist CFBundleShortVersionString (${PLIST_VERSION})"
+            exit 1
+          fi
+          if [[ ! "$PLIST_BUILD" =~ ^[0-9]+$ ]]; then
+            echo "::error::Info.plist CFBundleVersion must be a global integer build number, got: ${PLIST_BUILD}"
+            exit 1
+          fi
+
+          echo "BUILD_VERSION=${PLIST_BUILD}" >> "$GITHUB_ENV"
       - name: Build release body
         if: ${{ !inputs.build_only }}
         run: |
@@ -190,7 +208,7 @@ jobs:
           fi
           ITEM="        <item>
               <title>Version ${VERSION}</title>
-              <sparkle:version>${VERSION}</sparkle:version>
+              <sparkle:version>${BUILD_VERSION}</sparkle:version>
               <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>${CHANNEL}
               <pubDate>${PUB_DATE}</pubDate>
               <description><![CDATA[${NOTES}]]></description>

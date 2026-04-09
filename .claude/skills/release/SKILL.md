@@ -31,7 +31,7 @@ Look at `$ARGUMENTS`:
 - Determine the base version from the remaining argument (patch/minor/major/explicit), same rules as normal release below.
 - Find the latest existing beta tag for that base version: `git tag -l "v{base}-beta.*" | sort -V | tail -1`
 - If none exists, use `-beta.1`. Otherwise increment the beta number (e.g. `-beta.1` → `-beta.2`).
-- The final tag is `v{base}-beta.{N}`. Do NOT bump the version in source files — beta tags are metadata only.
+- The final tag is `v{base}-beta.{N}`. The full version (e.g. `0.2.5-beta.1`) is bumped in source files just like a normal release.
 
 **Normal release:** If no `beta` in arguments:
 - **No argument or `patch`**: bump the patch component (e.g. `0.1.0` → `0.1.1`)
@@ -92,9 +92,7 @@ Changelog:
 
 Wait for the user to confirm before proceeding. Do NOT continue without confirmation.
 
-## 6. Bump version (normal release only)
-
-Skip this step for beta releases.
+## 6. Bump version
 
 Run:
 
@@ -102,14 +100,14 @@ Run:
 bash scripts/bump-version.sh {new_version}
 ```
 
-This updates `Resources/Info.plist` and `pyproject.toml`.
+Where `{new_version}` is the full version string — e.g. `0.2.5` for a normal release, or `0.2.5-beta.1` for a pre-release.
 
-## 7. Commit (normal release only)
+This updates `Resources/Info.plist`, setting `CFBundleShortVersionString` to `{new_version}` and incrementing `CFBundleVersion`.
 
-Skip this step for beta releases.
+## 7. Commit
 
 ```bash
-git add Resources/Info.plist pyproject.toml
+git add Resources/Info.plist
 git commit -m "chore: release v{new_version}"
 ```
 
