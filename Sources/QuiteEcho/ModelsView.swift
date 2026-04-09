@@ -61,13 +61,17 @@ struct ModelCardView: View {
     let family: AppConfig.ModelFamily
     @State private var dirSize: Int64 = 0
     @State private var sizeTimer: Timer?
+    @State private var showVariantInfo: Bool = false
 
     private var currentModelId: String {
         family.modelId(selectedVariant)
     }
 
     private var selectedVariant: String {
-        family.variant(of: vm.config.model) ?? vm.config.variant(for: family)
+        let remembered = family.variant(of: vm.config.model) ?? vm.config.variant(for: family)
+        // Fall back to default if the remembered variant is no longer offered
+        // (e.g. a config written before 5bit was removed from the variant list).
+        return family.variants.contains(remembered) ? remembered : family.defaultVariant
     }
 
     private var selected: Bool { family.hasVariant(vm.config.model) }
@@ -100,7 +104,10 @@ struct ModelCardView: View {
                     modelStateBadge
                 }
 
-                variantPicker
+                HStack(spacing: 4) {
+                    variantPicker
+                    variantInfoIcon
+                }
             }
             .padding(16)
             .contentShape(Rectangle())
@@ -189,6 +196,127 @@ struct ModelCardView: View {
     }
 
     // MARK: - Variant picker
+
+    private var variantInfoIcon: some View {
+        Button {
+            showVariantInfo.toggle()
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Show memory requirements")
+        .popover(isPresented: $showVariantInfo, arrowEdge: .top) {
+            variantInfoPopover
+        }
+    }
+
+    @ViewBuilder
+    private var variantInfoPopover: some View {
+        let is17B = family.name.contains("1.7B")
+        // (variant, peak GB, note)
+        let rows: [(String, Double, String)] = is17B
+            ? [
+                ("bf16", 5.0, "full precision"),
+                ("8bit", 3.4, "default"),
+                ("6bit", 3.0, "smaller"),
+                ("4bit", 2.6, "smallest"),
+              ]
+            : [
+                ("bf16", 2.4, "full precision"),
+                ("8bit", 1.9, "default"),
+                ("6bit", 1.7, "smaller"),
+                ("4bit", 1.6, "smallest"),
+              ]
+
+        let totalGB = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824.0
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(family.name) — peak memory")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Text("Your Mac: \(String(format: "%.0f", totalGB)) GB")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            Text("Peak = model weights + inference activations")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(rows, id: \.0) { variant, peakGB, note in
+                    HStack(spacing: 8) {
+                        memoryFitIcon(peakGB: peakGB, totalGB: totalGB)
+                            .frame(width: 14)
+                        Text(variant)
+                            .font(.system(size: 12, design: .monospaced))
+                            .frame(width: 42, alignment: .leading)
+                        Text("~\(String(format: "%.1f", peakGB)) GB")
+                            .font(.system(size: 12, design: .monospaced))
+                            .frame(width: 60, alignment: .leading)
+                        if !note.isEmpty {
+                            Text(note)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            HStack(spacing: 10) {
+                HStack(spacing: 3) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.green)
+                    Text("comfortable")
+                }
+                HStack(spacing: 3) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                    Text("ok")
+                }
+                HStack(spacing: 3) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.orange)
+                    Text("tight")
+                }
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(width: 280)
+    }
+
+    @ViewBuilder
+    private func memoryFitIcon(peakGB: Double, totalGB: Double) -> some View {
+        // ✓ comfortable: peak <= 50% RAM
+        // ✓ (outlined) ok: 50% – 65%
+        // ⚠️ tight:  peak > 65% RAM
+        let ratio = peakGB / totalGB
+        if ratio <= 0.5 {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.green)
+        } else if ratio > 0.65 {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.orange)
+        } else {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+    }
 
     private var variantPicker: some View {
         Picker("", selection: Binding(

@@ -68,7 +68,7 @@ struct AppConfig: Codable {
     struct ModelFamily {
         let name: String           // e.g. "Qwen3-ASR-0.6B"
         let description: String
-        let variants: [String]     // e.g. ["4bit", "5bit", "6bit", "8bit", "bf16"]
+        let variants: [String]     // e.g. ["4bit", "6bit", "8bit", "bf16"]
         let defaultVariant: String // e.g. "8bit"
 
         func modelId(_ variant: String) -> String {
@@ -88,13 +88,13 @@ struct AppConfig: Codable {
         ModelFamily(
             name: "Qwen3-ASR-0.6B",
             description: "Faster inference, lower memory usage",
-            variants: ["4bit", "5bit", "6bit", "8bit", "bf16"],
+            variants: ["4bit", "6bit", "8bit", "bf16"],
             defaultVariant: "8bit"
         ),
         ModelFamily(
             name: "Qwen3-ASR-1.7B",
             description: "Higher accuracy, requires more memory",
-            variants: ["4bit", "5bit", "6bit", "8bit", "bf16"],
+            variants: ["4bit", "6bit", "8bit", "bf16"],
             defaultVariant: "8bit"
         ),
     ]

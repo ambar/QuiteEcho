@@ -1,4 +1,4 @@
-.PHONY: build run dmg clean release metallib
+.PHONY: build run dmg clean release metallib memprobe
 
 APP_NAME    = QuiteEcho
 BUILD_DIR   = .build/release
@@ -98,6 +98,17 @@ dmg:
 clean:
 	swift package clean
 	@rm -rf "$(APP_BUNDLE)" "$(DIST_DIR)" "$(METALLIB)"
+
+# Build and run the Qwen3-ASR memory profiler.
+#   make memprobe               # probe cached models only
+#   make memprobe ARGS=--all    # probe everything (triggers downloads, ~25 GB)
+#   make memprobe ARGS="--one mlx-community/Qwen3-ASR-1.7B-4bit"
+# See meta/asr-memory-profiling.md for methodology and results.
+memprobe:
+	@$(MAKE) metallib
+	cd scripts/asr-memprobe && swift build -c release
+	@cp "$(METALLIB)" scripts/asr-memprobe/.build/release/mlx.metallib
+	@scripts/asr-memprobe/.build/release/ASRMemProbe $(ARGS)
 
 release:
 	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=1.0.0" && exit 1)
