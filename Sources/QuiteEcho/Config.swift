@@ -21,10 +21,22 @@ struct AppConfig: Codable {
         "Persian", "Greek", "Romanian", "Hungarian", "Macedonian",
     ]
     var copyToClipboard: Bool = false    // keep transcribed text on clipboard after pasting
-    var useHFMirror: Bool = false        // use hf-mirror.com instead of huggingface.co
+    var useHFMirror: Bool = AppConfig.defaultUseHFMirror
     var autoCheckUpdates: Bool = true    // check GitHub releases on launch
     var betaUpdates: Bool = false        // opt-in to prerelease channel
     var modelVariants: [String: String] = [:]  // family name → selected variant (e.g. "Qwen3-ASR-0.6B": "4bit")
+
+    /// Default value for `useHFMirror`, evaluated at first `AppConfig()`
+    /// construction. Fresh installs in mainland China go through the mirror
+    /// automatically, since `huggingface.co` is typically unreachable from
+    /// there. Existing installs keep whatever value they wrote to disk.
+    ///
+    /// We key off `region`, not the language code — a user whose interface
+    /// is English but whose region is CN still benefits from the mirror.
+    static let defaultUseHFMirror: Bool = {
+        let region = Locale.current.region?.identifier ?? ""
+        return ["CN"].contains(region)
+    }()
 
     // MARK: - Persistence
 
