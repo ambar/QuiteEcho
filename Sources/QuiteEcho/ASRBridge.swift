@@ -25,6 +25,13 @@ final class ASRBridge {
             unsetenv("HF_ENDPOINT")
         }
 
+        // NOTE: real byte-level download progress is not achievable with the
+        // current mlx-audio-swift + swift-huggingface stack — LFS files
+        // stream through a URLSession temp URL invisible to us, and the
+        // parent Progress aggregation underreports LFS children (confirmed
+        // empirically, see meta/download-progress-investigation.md). So we
+        // just stay in .loading for the full fetch+load cycle and let the
+        // UI show a spinner.
         Task.detached { [weak self] in
             do {
                 let loaded = try await Qwen3ASRModel.fromPretrained(modelId)

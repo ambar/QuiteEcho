@@ -117,7 +117,12 @@ struct AppConfig: Codable {
         modelVariants[family.name] ?? family.defaultVariant
     }
 
-    /// HuggingFace hub cache directory for a given model ID.
+    /// HuggingFace hub cache directory for a given model ID, in the
+    /// canonical `models--<org>--<name>` layout. This is populated as a
+    /// side effect by any HubClient download (including mlx-audio-swift's
+    /// internal call), so it's a stable anchor for "where are the bytes?"
+    /// across upstream refactors — don't hard-code mlx-audio-swift's own
+    /// subdirectory scheme, which is an implementation detail.
     static func modelCacheDir(_ modelId: String) -> String {
         let dirName = "models--" + modelId.replacingOccurrences(of: "/", with: "--")
         return FileManager.default.homeDirectoryForCurrentUser
