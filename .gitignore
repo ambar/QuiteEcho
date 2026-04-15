@@ -29,3 +29,6 @@ dist/
 # IDE
 .idea/
 *.swp
+
+# Claude
+.claude/settings.local.json
