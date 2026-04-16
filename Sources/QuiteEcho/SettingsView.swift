@@ -37,30 +37,43 @@ struct SettingsView: View {
                     }
                 }
 
-                // Speech Language
-                card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Speech Language")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-
-                        HStack {
-                            Text("Language for speech recognition")
-                                .font(.system(size: 11))
+                // Speech Language — picker for families that route a hint
+                // into the decoder, read-only note for families that detect
+                // the language from the audio themselves.
+                if let family = vm.config.modelFamily,
+                   family.supportsLanguage || family.autoDetectsLanguage {
+                    card {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Speech Language")
+                                .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.secondary)
-                            Spacer()
-                            Picker("", selection: Binding(
-                                get: { vm.config.language },
-                                set: { vm.onLanguageChange?($0) }
-                            )) {
-                                Text("Auto").tag("")
-                                ForEach(AppConfig.supportedLanguages, id: \.self) { lang in
-                                    Text(lang).tag(lang)
+                                .textCase(.uppercase)
+
+                            HStack {
+                                Text("Language for speech recognition")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                if family.supportsLanguage {
+                                    Picker("", selection: Binding(
+                                        get: { vm.config.language },
+                                        set: { vm.onLanguageChange?($0) }
+                                    )) {
+                                        if family.supportsAutoLanguage {
+                                            Text("Auto").tag("")
+                                        }
+                                        ForEach(family.supportedLanguages, id: \.self) { lang in
+                                            Text(lang).tag(lang)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                    .fixedSize()
+                                } else {
+                                    Text("Auto (detected from audio)")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
                                 }
                             }
-                            .labelsHidden()
-                            .fixedSize()
                         }
                     }
                 }

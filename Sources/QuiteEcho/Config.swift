@@ -7,11 +7,12 @@ struct AppConfig: Codable {
     var hotkeyModifiers: Int = 0         // no modifiers
     var hotkeyMode: String = "hold"      // "toggle" or "hold"
     var hotkeyIsMediaKey: Bool = false    // true = NX_KEYTYPE (special fn key)
-    var language: String = ""            // empty = model default (English); true auto-detect not supported by Qwen3-ASR
+    var language: String = ""            // empty = auto-detect (supported by Qwen3-ASR since mlx-audio-swift #110)
 
-    // Hardcoded from Qwen3-ASR model config (config.supportLanguages in HF blob).
-    // Ideally read from Qwen3ASRModel.config.supportLanguages at runtime,
-    // pending mlx-audio-swift exposing this property.
+    // Default language list — used by Qwen3-ASR (config.supportLanguages in
+    // HF blob). Cohere supports a narrower subset (see ModelFamily.supportedLanguages);
+    // Parakeet v3 / Voxtral auto-detect natively; Granite repurposes the
+    // field as a translation target; GLM-ASR ignores it.
     static let supportedLanguages: [String] = [
         "Chinese", "English", "Cantonese", "Japanese", "Korean",
         "Arabic", "French", "German", "Spanish", "Portuguese",
@@ -60,6 +61,16 @@ struct AppConfig: Codable {
             config.save()
         }
 
+        // Normalize language against the active family — older saved configs
+        // may have a language the newly selected family doesn't accept.
+        if let family = config.modelFamily {
+            let normalized = family.normalizedLanguage(config.language)
+            if normalized != config.language {
+                config.language = normalized
+                config.save()
+            }
+        }
+
         return config
     }
 
@@ -78,36 +89,201 @@ struct AppConfig: Codable {
     // MARK: - Model families
 
     struct ModelFamily {
-        let name: String           // e.g. "Qwen3-ASR-0.6B"
+        let name: String              // display name, e.g. "Qwen3-ASR-0.6B"
         let description: String
-        let variants: [String]     // e.g. ["4bit", "6bit", "8bit", "bf16"]
-        let defaultVariant: String // e.g. "8bit"
+        let kind: Kind                // which mlx-audio-swift class loads it
+        let variants: [Variant]
+        let defaultVariant: String    // must match one of variants[].name
 
-        func modelId(_ variant: String) -> String {
-            "mlx-community/\(name)-\(variant)"
+        struct Variant: Hashable {
+            let name: String          // short label, e.g. "8bit"
+            let repoId: String        // full HF repo id
+        }
+
+        enum Kind {
+            case qwen3ASR
+            case parakeet
+            case voxtralRealtime
+            case glmASR
+            case graniteSpeech
+            case cohereTranscribe
+        }
+
+        /// Whether a meaningful language hint can be passed to this family's
+        /// `generate()` and routed into the decoder to pick a recognition
+        /// language. Qwen3-ASR accepts an optional hint (with auto-detect
+        /// fallback); Cohere *requires* one (defaults to English if omitted
+        /// and silently falls back to English for unsupported codes).
+        /// GLM-ASR ignores the field; Parakeet v3 / Voxtral auto-detect
+        /// natively; Granite repurposes it as a *translation target*, which
+        /// would be surprising for a "Speech Language" setting.
+        var supportsLanguage: Bool {
+            switch kind {
+            case .qwen3ASR, .cohereTranscribe: return true
+            default: return false
+            }
+        }
+
+        /// Families that identify the spoken language from the audio itself
+        /// without accepting a user-selected hint. UI surfaces this as a
+        /// read-only note instead of hiding the language section entirely.
+        var autoDetectsLanguage: Bool {
+            switch kind {
+            case .parakeet, .voxtralRealtime: return true
+            default: return false
+            }
+        }
+
+        /// Whether this family supports "Auto" (no explicit language) in
+        /// its picker. Qwen3-ASR auto-detects when language is empty;
+        /// Cohere does not — leaving it empty silently defaults to English.
+        var supportsAutoLanguage: Bool {
+            kind == .qwen3ASR
+        }
+
+        /// Language code to fall back to when the current user selection
+        /// isn't valid for this family (e.g. switching Qwen3 "Cantonese" →
+        /// Cohere, which doesn't support Cantonese).
+        var defaultLanguage: String {
+            kind == .cohereTranscribe ? "English" : ""
+        }
+
+        /// Languages this family can actually recognize. Nil means the
+        /// global `AppConfig.supportedLanguages` applies.
+        var supportedLanguages: [String] {
+            switch kind {
+            case .cohereTranscribe:
+                // See CohereTranscribeTokenizer.mapLanguageCode — unknown
+                // codes silently fall back to English, so we must not
+                // offer languages the model can't actually transcribe.
+                return [
+                    "English", "French", "German", "Spanish", "Italian",
+                    "Portuguese", "Dutch", "Polish", "Greek", "Arabic",
+                    "Japanese", "Chinese", "Vietnamese", "Korean",
+                ]
+            default:
+                return AppConfig.supportedLanguages
+            }
+        }
+
+        /// Coerce a user-selected language into one this family accepts.
+        /// Returns the input unchanged when valid; otherwise falls back to
+        /// `defaultLanguage`. Families without `supportsLanguage` keep the
+        /// field untouched — it's inert for them and the user may want it
+        /// preserved when they switch back to a family that uses it.
+        func normalizedLanguage(_ current: String) -> String {
+            guard supportsLanguage else { return current }
+            if current.isEmpty { return supportsAutoLanguage ? "" : defaultLanguage }
+            return supportedLanguages.contains(current) ? current : defaultLanguage
+        }
+
+        /// Map a variant name to its repo ID, falling back to the default.
+        func modelId(_ variantName: String) -> String {
+            variants.first { $0.name == variantName }?.repoId
+                ?? variants.first { $0.name == defaultVariant }?.repoId
+                ?? variants[0].repoId
         }
 
         func hasVariant(_ modelId: String) -> Bool {
-            variants.contains { modelId == self.modelId($0) }
+            variants.contains { $0.repoId == modelId }
         }
 
         func variant(of modelId: String) -> String? {
-            variants.first { modelId == self.modelId($0) }
+            variants.first { $0.repoId == modelId }?.name
         }
     }
 
     static let modelFamilies: [ModelFamily] = [
+        // MARK: Qwen3-ASR (Alibaba, multilingual incl. Chinese)
         ModelFamily(
             name: "Qwen3-ASR-0.6B",
-            description: "Faster inference, lower memory usage",
-            variants: ["4bit", "6bit", "8bit", "bf16"],
+            description: "Alibaba — multilingual, faster, lower memory",
+            kind: .qwen3ASR,
+            variants: [
+                .init(name: "4bit", repoId: "mlx-community/Qwen3-ASR-0.6B-4bit"),
+                .init(name: "6bit", repoId: "mlx-community/Qwen3-ASR-0.6B-6bit"),
+                .init(name: "8bit", repoId: "mlx-community/Qwen3-ASR-0.6B-8bit"),
+                .init(name: "bf16", repoId: "mlx-community/Qwen3-ASR-0.6B-bf16"),
+            ],
             defaultVariant: "8bit"
         ),
         ModelFamily(
             name: "Qwen3-ASR-1.7B",
-            description: "Higher accuracy, requires more memory",
-            variants: ["4bit", "6bit", "8bit", "bf16"],
+            description: "Alibaba — multilingual, higher accuracy",
+            kind: .qwen3ASR,
+            variants: [
+                .init(name: "4bit", repoId: "mlx-community/Qwen3-ASR-1.7B-4bit"),
+                .init(name: "6bit", repoId: "mlx-community/Qwen3-ASR-1.7B-6bit"),
+                .init(name: "8bit", repoId: "mlx-community/Qwen3-ASR-1.7B-8bit"),
+                .init(name: "bf16", repoId: "mlx-community/Qwen3-ASR-1.7B-bf16"),
+            ],
             defaultVariant: "8bit"
+        ),
+
+        // MARK: Parakeet TDT (NVIDIA, English SOTA speed)
+        ModelFamily(
+            name: "Parakeet-TDT-0.6B",
+            description: "NVIDIA — English ASR, very fast",
+            kind: .parakeet,
+            variants: [
+                .init(name: "v3", repoId: "mlx-community/parakeet-tdt-0.6b-v3"),
+            ],
+            defaultVariant: "v3"
+        ),
+        ModelFamily(
+            name: "Parakeet-TDT-1.1B",
+            description: "NVIDIA — English ASR, larger",
+            kind: .parakeet,
+            variants: [
+                .init(name: "tdt", repoId: "mlx-community/parakeet-tdt-1.1b"),
+            ],
+            defaultVariant: "tdt"
+        ),
+
+        // MARK: Voxtral Realtime (Mistral, streaming multilingual)
+        ModelFamily(
+            name: "Voxtral-Mini-4B-Realtime",
+            description: "Mistral — multilingual realtime streaming",
+            kind: .voxtralRealtime,
+            variants: [
+                .init(name: "4bit", repoId: "mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit"),
+                .init(name: "6bit", repoId: "mlx-community/Voxtral-Mini-4B-Realtime-2602-6bit"),
+                .init(name: "fp16", repoId: "mlx-community/Voxtral-Mini-4B-Realtime-2602-fp16"),
+            ],
+            defaultVariant: "4bit"
+        ),
+
+        // MARK: GLM-ASR (Zhipu, compact)
+        ModelFamily(
+            name: "GLM-ASR-Nano",
+            description: "Zhipu — compact ASR, smallest download",
+            kind: .glmASR,
+            variants: [
+                .init(name: "4bit", repoId: "mlx-community/GLM-ASR-Nano-2512-4bit"),
+            ],
+            defaultVariant: "4bit"
+        ),
+
+        // MARK: Granite Speech (IBM, ASR + translation)
+        ModelFamily(
+            name: "Granite-Speech-1B",
+            description: "IBM — ASR + speech translation (en/fr/de/es/pt/ja)",
+            kind: .graniteSpeech,
+            variants: [
+                .init(name: "5bit", repoId: "mlx-community/granite-4.0-1b-speech-5bit"),
+            ],
+            defaultVariant: "5bit"
+        ),
+
+        // MARK: Cohere Transcribe (multilingual encoder-decoder, 14 langs)
+        ModelFamily(
+            name: "Cohere-Transcribe-03-2026",
+            description: "Cohere — multilingual (14 langs), English SOTA",
+            kind: .cohereTranscribe,
+            variants: [
+                .init(name: "fp16", repoId: "beshkenadze/cohere-transcribe-03-2026-mlx-fp16"),
+            ],
+            defaultVariant: "fp16"
         ),
     ]
 

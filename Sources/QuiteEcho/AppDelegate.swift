@@ -315,6 +315,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let family = AppConfig.modelFamilies.first(where: { $0.hasVariant(modelID) }),
            let variant = family.variant(of: modelID) {
             config.modelVariants[family.name] = variant
+            // Normalize language against the newly selected family. Prevents
+            // e.g. "Cantonese" from silently misrouting to English when the
+            // user switches Qwen3 → Cohere.
+            config.language = family.normalizedLanguage(config.language)
         }
         config.save()
         viewModel.config = config

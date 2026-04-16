@@ -5,46 +5,26 @@ import SwiftUI
 
 struct ModelsView: View {
     @ObservedObject var vm: MainViewModel
+    @State private var showBenchmarks: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer().frame(height: 38)
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Models")
-                        .font(.system(size: 22, weight: .bold))
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("Models")
+                            .font(.system(size: 22, weight: .bold))
+                        Spacer()
+                        benchmarksButton
+                        downloadSourcePicker
+                    }
 
                     VStack(spacing: 10) {
                         ForEach(Array(AppConfig.modelFamilies.enumerated()), id: \.offset) { _, family in
                             ModelCardView(vm: vm, family: family)
                         }
                     }
-
-                    // Mirror source
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Download Source")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-
-                        Picker("", selection: Binding(
-                            get: { vm.config.useHFMirror },
-                            set: { vm.onHFMirrorChange?($0) }
-                        )) {
-                            Text("Hugging Face (Official)").tag(false)
-                            Text("HF Mirror (hf-mirror.com)").tag(true)
-                        }
-                        .pickerStyle(.radioGroup)
-                        .labelsHidden()
-                    }
-                    .padding(18)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
-                    )
                 }
                 .padding(.horizontal, 32)
                 .padding(.top, 12)
@@ -53,6 +33,113 @@ struct ModelsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
+    }
+
+    private var benchmarksButton: some View {
+        Button {
+            showBenchmarks.toggle()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "chart.bar")
+                    .font(.system(size: 11))
+                Text("Benchmarks")
+                    .font(.system(size: 12))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Compare published accuracy across model families")
+        .popover(isPresented: $showBenchmarks, arrowEdge: .top) {
+            benchmarksPopover
+        }
+    }
+
+    @ViewBuilder
+    private var benchmarksPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Model Benchmarks")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Published accuracy on standard ASR benchmarks (lower WER is better)")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 7) {
+                ForEach(Self.benchmarkRows, id: \.family) { row in
+                    GridRow {
+                        Text(row.family)
+                            .font(.system(size: 12, weight: .medium))
+                        Text(row.metric)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                        Text(row.bestFor)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Divider()
+
+            Text("Numbers are from upstream papers / HF model cards on bf16/fp16 weights. MLX quantization may add 0.1–0.5 pp WER. Benchmarks use different datasets — don't compare rows directly.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(width: 560)
+    }
+
+    private struct BenchmarkRow {
+        let family: String
+        let metric: String
+        let bestFor: String
+    }
+
+    private static let benchmarkRows: [BenchmarkRow] = [
+        .init(family: "Qwen3-ASR-0.6B", metric: "LibriSpeech 2.11 / 4.55", bestFor: "Multilingual, light"),
+        .init(family: "Qwen3-ASR-1.7B", metric: "FLEURS en 3.35 / zh 2.41", bestFor: "Multilingual + Chinese"),
+        .init(family: "Parakeet-TDT-0.6B", metric: "OpenASR 6.32, RTFx 3330", bestFor: "English, fastest"),
+        .init(family: "Parakeet-TDT-1.1B", metric: "OpenASR 5.63, LibriSpeech 1.6 / 3.1", bestFor: "English, larger"),
+        .init(family: "Voxtral-Mini-4B-Realtime", metric: "FLEURS top-10 ~4%", bestFor: "Streaming, low latency"),
+        .init(family: "GLM-ASR-Nano", metric: "Aishell-1 CER 0.07", bestFor: "Chinese + Cantonese"),
+        .init(family: "Granite-Speech-1B", metric: "OpenASR 5.52", bestFor: "English + translation"),
+        .init(family: "Cohere-Transcribe-03-2026", metric: "OpenASR 5.42 (#1)", bestFor: "English SOTA, 14 langs"),
+    ]
+
+    private var downloadSourcePicker: some View {
+        Menu {
+            Button {
+                vm.onHFMirrorChange?(false)
+            } label: {
+                if !vm.config.useHFMirror {
+                    Label("Hugging Face (Official)", systemImage: "checkmark")
+                } else {
+                    Text("Hugging Face (Official)")
+                }
+            }
+            Button {
+                vm.onHFMirrorChange?(true)
+            } label: {
+                if vm.config.useHFMirror {
+                    Label("HF Mirror (hf-mirror.com)", systemImage: "checkmark")
+                } else {
+                    Text("HF Mirror (hf-mirror.com)")
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.down.circle")
+                    .font(.system(size: 11))
+                Text(vm.config.useHFMirror ? "HF Mirror" : "Hugging Face")
+                    .font(.system(size: 12))
+            }
+            .foregroundStyle(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Download source for model files")
     }
 }
 
@@ -71,7 +158,7 @@ struct ModelCardView: View {
         let remembered = family.variant(of: vm.config.model) ?? vm.config.variant(for: family)
         // Fall back to default if the remembered variant is no longer offered
         // (e.g. a config written before 5bit was removed from the variant list).
-        return family.variants.contains(remembered) ? remembered : family.defaultVariant
+        return family.variants.contains(where: { $0.name == remembered }) ? remembered : family.defaultVariant
     }
 
     private var selected: Bool { family.hasVariant(vm.config.model) }
@@ -105,8 +192,14 @@ struct ModelCardView: View {
                 }
 
                 HStack(spacing: 4) {
-                    variantPicker
-                    variantInfoIcon
+                    if family.variants.count > 1 {
+                        variantPicker
+                    } else if Self.isQuantizationLabel(selectedVariant) {
+                        variantChip
+                    }
+                    if family.kind == .qwen3ASR {
+                        variantInfoIcon
+                    }
                 }
             }
             .padding(16)
@@ -325,14 +418,34 @@ struct ModelCardView: View {
                 vm.onModelChange?(family.modelId(newVariant))
             }
         )) {
-            ForEach(family.variants, id: \.self) { variant in
-                Text(variant).tag(variant)
+            ForEach(family.variants, id: \.name) { variant in
+                Text(variant.name).tag(variant.name)
             }
         }
         .labelsHidden()
         .pickerStyle(.menu)
-        .frame(width: 80)
+        .frame(width: 90)
         .onTapGesture {} // prevent card tap from firing
+    }
+
+    /// Variant labels that represent a quantization / precision level and
+    /// are therefore useful to surface in the chip. Version or architecture
+    /// tags like "v3" or "tdt" add no actionable info — they're hidden.
+    static func isQuantizationLabel(_ name: String) -> Bool {
+        ["4bit", "5bit", "6bit", "8bit", "bf16", "fp16"].contains(name)
+    }
+
+    /// For families with only one variant the picker is useless — render a
+    /// static chip showing the variant name so the row still has a visual
+    /// anchor in the same column as the multi-variant pickers.
+    private var variantChip: some View {
+        Text(selectedVariant)
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color(nsColor: .separatorColor).opacity(0.3))
+            .clipShape(Capsule())
     }
 
     // MARK: - State badge

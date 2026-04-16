@@ -5,7 +5,7 @@ let package = Package(
     name: "QuiteEcho",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/Blaizzy/mlx-audio-swift.git", revision: "fcbd04d"),
+        .package(url: "https://github.com/Blaizzy/mlx-audio-swift.git", revision: "6f0d9ad"),
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.7.0"),
     ],
     targets: [

@@ -17,14 +17,18 @@ Default hotkey: **Fn (hold)** — hold to record, release to transcribe and past
 
 ## Models
 
-Powered by [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) — all-in-one speech recognition supporting 30 languages and 22 Chinese dialects, with speech, singing, and background music handling.
+Six ASR families, switchable in the Models tab:
 
-| Model | Notes |
+| Family | Best for |
 |---|---|
-| Qwen3-ASR-0.6B | Default. Faster inference, lower memory — good accuracy-efficiency trade-off |
-| Qwen3-ASR-1.7B | State-of-the-art accuracy among open-source ASR, competitive with commercial APIs |
+| [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) (0.6B / 1.7B) | Multilingual + Chinese (default); 30 languages, 22 dialects |
+| Parakeet-TDT (0.6B v3 / 1.1B) | English, highest throughput |
+| Voxtral-Mini-4B-Realtime | Streaming, low latency |
+| GLM-ASR-Nano | Chinese + Cantonese |
+| Granite-Speech-1B | English + speech translation |
+| Cohere-Transcribe-03-2026 | English SOTA; 14 languages |
 
-Models are downloaded on first use.
+Models download from HuggingFace on first use.
 
 ## Requirements
 
