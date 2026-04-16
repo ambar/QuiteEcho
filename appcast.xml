@@ -60,5 +60,23 @@
                length="16410003"
                type="application/octet-stream"/>
 </item>
+            <item>
+    <title>Version 0.2.6-beta.1</title>
+    <sparkle:version>14</sparkle:version>
+    <sparkle:shortVersionString>0.2.6-beta.1</sparkle:shortVersionString>
+    <sparkle:channel>beta</sparkle:channel>
+    <pubDate>Thu, 16 Apr 2026 18:07:37 +0000</pubDate>
+    <description><![CDATA[<h2>Features</h2>
+<ul>
+<li>Add 6 ASR model families</li>
+<li>Improve useHFMirror default</li>
+<li>Add memory info popover and profile ASR variants</li>
+</ul>
+<p><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/ambar/QuiteEcho/compare/v0.2.5...v0.2.6-beta.1">ambar/QuiteEcho@<tt>v0.2.5...v0.2.6-beta.1</tt></a></p>]]></description>
+    <enclosure url="https://github.com/ambar/QuiteEcho/releases/download/v0.2.6-beta.1/QuiteEcho-0.2.6-beta.1.dmg"
+               sparkle:edSignature="Tb/lJQ6bGc/AguW2yEDGGu9K+6NdgrhUonk7tKifYjPzOcvQ0JOmi8HqeHX4ksZdmXExPj3CoAY/nKcrmXqBAw=="
+               length="16932508"
+               type="application/octet-stream"/>
+</item>
     </channel>
 </rss>
