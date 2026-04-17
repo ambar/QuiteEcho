@@ -82,6 +82,33 @@ final class OverlayPanel {
 
     // MARK: - Public
 
+    /// Reposition the panel near a cursor rect (in screen coordinates).
+    /// Falls back to centered bottom if `cursorRect` is nil.
+    func positionNear(cursor cursorRect: NSRect?) {
+        guard let cursorRect, let screen = screenContaining(cursorRect) else {
+            positionDefault()
+            return
+        }
+
+        let visibleFrame = screen.visibleFrame
+        let padding: CGFloat = 6
+
+        // Place panel horizontally centered on the cursor, vertically above it
+        var x = cursorRect.midX - kPanelW / 2
+        var y = cursorRect.maxY + padding  // above the cursor (screen coords: y increases upward)
+
+        // If not enough space above, place below
+        if y + kPanelH > visibleFrame.maxY {
+            y = cursorRect.minY - kPanelH - padding
+        }
+
+        // Clamp to screen edges
+        x = max(visibleFrame.minX + padding, min(x, visibleFrame.maxX - kPanelW - padding))
+        y = max(visibleFrame.minY + padding, min(y, visibleFrame.maxY - kPanelH - padding))
+
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
     func showRecording() {
         dismissTimer?.invalidate()
         dismissTimer = nil
@@ -144,6 +171,22 @@ final class OverlayPanel {
         dismissTimer = nil
         panel.orderOut(nil)
         panel.alphaValue = 0
+    }
+
+    // MARK: - Positioning
+
+    private func positionDefault() {
+        let screen = NSScreen.main?.frame ?? .zero
+        let x = (screen.width - kPanelW) / 2
+        let y = screen.height * 0.10
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    private func screenContaining(_ rect: NSRect) -> NSScreen? {
+        for screen in NSScreen.screens {
+            if screen.frame.intersects(rect) { return screen }
+        }
+        return nil
     }
 
     // MARK: - Internals
